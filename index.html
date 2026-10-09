@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Oyunlar — Günlük Bulmacalar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1d1d1f;--muted:#8a8a8f;--line:#e7e7e4;--soft:#f7f7f5;--correct:#6aa780;--present:#d8b257;--absent:#9da1a6;--ease:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+header{border-bottom:1px solid var(--line)}
+.bar{max-width:960px;margin:0 auto;height:60px;padding:0 20px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:24px;letter-spacing:-.015em}
+.date{font-size:13px;color:var(--muted)}
+main{max-width:960px;margin:0 auto;padding:48px 20px 64px}
+h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(30px,5vw,42px);letter-spacing:-.02em;margin:0 0 8px}
+.lead{color:var(--muted);font-size:16px;margin:0 0 36px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{display:flex;flex-direction:column;gap:14px;padding:22px;border:1px solid var(--line);border-radius:18px;text-decoration:none;color:inherit;background:#fff;
+  opacity:0;transform:translateY(10px);animation:in .6s var(--ease) forwards;animation-delay:calc(var(--i) * 70ms);
+  transition:border-color .3s var(--ease),box-shadow .4s var(--ease),transform .4s var(--ease)}
+a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);transform:translateY(-3px)}
+.card.soon{color:var(--muted)}
+.art{height:120px;border-radius:12px;background:var(--soft);display:grid;place-items:center}
+.tiles{display:flex;gap:5px}
+.tiles b{width:32px;height:32px;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:15px}
+.card h2{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:21px;margin:0}
+.card p{margin:0;font-size:14px;line-height:1.5;color:var(--muted)}
+.tag{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:99px;background:var(--soft);color:var(--muted)}
+.tag.live{background:#eaf3ed;color:#4b8a61}
+.ph{font-family:Fraunces,Georgia,serif;font-size:34px;color:#c9c9c4}
+@keyframes in{to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header><div class="bar"><div class="logo">Oyunlar</div><div class="date" id="date"></div></div></header>
+<main>
+  <h1>Günlük Bulmacalar</h1>
+  <p class="lead">Her gün yeni bulmacalarla zihninizi çalıştırın.</p>
+  <div class="grid">
+    <a class="card" href="wordle.html" style="--i:0">
+      <div class="art"><div class="tiles"><b style="background:var(--correct)">K</b><b style="background:var(--absent)">E</b><b style="background:var(--present)">L</b><b style="background:var(--correct)">İ</b><b style="background:var(--absent)">M</b></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Kelime</h2>
+      <p>Gizli kelimeyi 6 denemede bulun.</p>
+    </a>
+    <div class="card soon" style="--i:1"><div class="art"><span class="ph">4×4</span></div><span class="tag">Yakında</span><h2>Bağlantılar</h2><p>16 kelimeyi ortak noktalarına göre 4 gruba ayırın.</p></div>
+    <div class="card soon" style="--i:2"><div class="art"><span class="ph">↑ ↓</span></div><span class="tag">Yakında</span><h2>Yüksek mi Alçak mı</h2><p>Hangisinin daha büyük olduğunu tahmin edin.</p></div>
+    <div class="card soon" style="--i:3"><div class="art"><span class="ph">⌖</span></div><span class="tag">Yakında</span><h2>Neredeyim?</h2><p>Fotoğraftaki yeri haritada bulun.</p></div>
+  </div>
+</main>
+<script>
+document.getElementById("date").textContent = new Date().toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+</script>
+</body>
+</html>
