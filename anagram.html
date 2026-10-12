@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Anagram — Günlük Harf Karışımı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#efefec; --key-hover:#e6e6e2; --soft:#f7f7f5;
+  --correct:#6aa780; --honey:#f1d27a; --reveal:#cfd8e3;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --lt:min(50px, calc((100vw - 32px - 6 * 8px) / 7));
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  -webkit-tap-highlight-color:transparent;overflow:hidden;
+}
+button{font:inherit;color:inherit}
+.app{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+/* Header */
+header{flex:none;border-bottom:1px solid var(--line)}
+.bar{max-width:600px;margin:0 auto;height:60px;padding:0 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bar .right{display:flex;justify-content:flex-end;gap:2px}
+.title{font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;line-height:1}
+.ib{width:40px;height:40px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:background-color .25s var(--ease),transform .15s var(--ease)}
+.ib:hover{background:var(--soft)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* Top */
+.top{flex:none;width:100%;max-width:560px;margin:0 auto;padding:10px 16px 0;display:flex;flex-direction:column;gap:8px}
+.sub{display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--muted);letter-spacing:.01em;min-height:26px;flex-wrap:wrap}
+.sub .dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background-color .25s var(--ease),border-color .25s}
+.chip:hover{background:var(--soft);border-color:var(--line-strong)}
+.prog{display:flex;align-items:center;gap:12px;font-size:13px;color:#3a3a3d}
+.prog b{font-variant-numeric:tabular-nums}
+.track{flex:1;height:6px;border-radius:99px;background:var(--key);overflow:hidden}
+.track i{display:block;height:100%;width:0;background:var(--correct);border-radius:99px;transition:width .7s var(--ease)}
+.score{font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Slots */
+.slots{flex:1;min-height:0;overflow-y:auto;width:100%;max-width:560px;margin:0 auto;padding:10px 16px}
+.grp{margin-bottom:12px}
+.grp h4{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ws{display:flex;flex-wrap:wrap;gap:8px 12px}
+.w{display:flex;gap:2px}
+.w i{width:20px;height:24px;border-radius:5px;background:var(--key);display:grid;place-items:center;font-style:normal;font-weight:700;font-size:12.5px;transition:background-color .3s var(--ease),color .3s}
+.w.got i{background:var(--correct);color:#fff}
+.w.rev i{background:var(--reveal);color:var(--ink)}
+.w.new i{animation:pop .45s var(--ease) both;animation-delay:calc(var(--d) * 40ms)}
+.bonus{font-size:13px;color:var(--muted);line-height:1.6}
+.bonus b{color:var(--ink);font-weight:600;letter-spacing:.03em}
+
+/* Play */
+.play{flex:none;width:100%;max-width:560px;margin:0 auto;padding:8px 16px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:12px;border-top:1px solid var(--line);background:#fff}
+.input{height:40px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;letter-spacing:.08em;white-space:nowrap}
+.input .caret{width:2px;height:28px;background:var(--correct);margin-left:3px;animation:blink 1s steps(1) infinite}
+.input.shake{animation:shake .45s var(--ease)}
+.input.ok{animation:ok .45s var(--ease)}
+.letters{display:flex;gap:8px;justify-content:center}
+.lt{width:var(--lt);height:calc(var(--lt) * 1.1);border:0;border-radius:12px;background:var(--honey);font-weight:700;font-size:calc(var(--lt) * .5);display:grid;place-items:center;cursor:pointer;touch-action:manipulation;
+  transition:transform .25s var(--ease),opacity .2s,background-color .2s}
+.lt:active{transform:scale(.92)}
+.lt.used{opacity:.25;transform:scale(.9);cursor:default}
+.letters.mix .lt{transform:scale(.6) rotate(-12deg);opacity:0}
+.actions{display:flex;gap:10px;justify-content:center}
+.btn{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:12px 20px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.96)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+.btn.round{width:46px;height:46px;padding:0}
+.btn:disabled{opacity:.35;cursor:default}
+
+@keyframes blink{50%{opacity:0}}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+@keyframes ok{40%{transform:translateY(-5px) scale(1.05)}100%{transform:none;opacity:.2}}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:none}}
+
+/* Toasts */
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s var(--ease),transform .35s var(--ease);white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-6px) scale(.97)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+
+/* Overlays */
+.scrim{position:fixed;inset:0;background:rgba(250,250,248,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:20px;z-index:50;pointer-events:none}
+.card{width:100%;max-width:410px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(20,20,20,.12),0 2px 8px rgba(20,20,20,.04);padding:26px 26px 24px;position:relative;
+  opacity:0;transform:translateY(14px) scale(.975);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.modal.open{pointer-events:auto}
+.modal.open .card{opacity:1;transform:none}
+.card h2{font-weight:700;font-size:21px;margin:0 0 14px;letter-spacing:-.015em}
+.card h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px}
+.card p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#3a3a3d}
+.card ul{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.6;color:#3a3a3d}
+.close{position:absolute;top:14px;right:14px}
+.hr{height:1px;background:var(--line);margin:18px 0}
+.note{font-size:13px!important;color:var(--muted)!important}
+.pts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center;font-size:13px}
+.pts div{background:var(--soft);border-radius:10px;padding:8px 4px}
+.pts b{display:block;font-size:18px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats b{display:block;font-size:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.result{text-align:center}
+.result .big{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.result p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.foot{display:flex;align-items:center;gap:16px;margin-top:22px}
+.foot>div{flex:1}
+.foot small{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.clock{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.confirm{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+/* Drawer */
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);
+  transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
+.dh .brand{font-weight:700;font-size:20px;letter-spacing:-.015em}
+.dh small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;letter-spacing:0}
+.item{width:100%;border:0;background:transparent;display:flex;align-items:center;gap:14px;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;text-decoration:none;color:inherit;
+  opacity:0;transform:translateX(-10px);transition:opacity .45s var(--ease),transform .55s var(--ease),background-color .25s var(--ease)}
+.drawer.open .item{opacity:1;transform:none;transition-delay:calc(var(--i) * 45ms + 120ms),calc(var(--i) * 45ms + 120ms),0s}
+.item:hover{background:var(--soft)}
+.item.on{background:var(--soft);font-weight:600}
+.item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.item.on svg{color:var(--ink)}
+.sep{height:1px;background:var(--line);margin:10px 8px}
+.dfoot{margin-top:auto;padding:0 12px;font-size:12px;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div><button class="ib" id="menuBtn" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button></div>
+      <h1 class="title">Anagram</h1>
+      <div class="right">
+        <button class="ib" data-open="help" aria-label="Nasıl oynanır"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg></button>
+        <button class="ib" data-open="stats" aria-label="İstatistikler"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <div class="top">
+    <div class="sub" id="sub"></div>
+    <div class="prog"><span><b id="cnt"></b> kelime</span><div class="track"><i id="fill"></i></div><span class="score" id="score"></span></div>
+  </div>
+  <div class="slots" id="slots"></div>
+  <div class="play">
+    <div class="input" id="input"></div>
+    <div class="letters" id="letters"></div>
+    <div class="actions">
+      <button class="btn ghost" id="delBtn">Sil</button>
+      <button class="btn ghost round" id="mixBtn" aria-label="Karıştır"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg></button>
+      <button class="btn" id="enterBtn">Gir</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
+
+<nav class="drawer" id="drawer" aria-label="Menü">
+  <div class="dh">
+    <div class="brand">Anagram<small>Haber Oyunları</small></div>
+    <button class="ib" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button class="item" style="--i:0" data-mode="daily"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Günün Anagramı</button>
+  <button class="item" style="--i:1" data-mode="practice"><svg viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3M18 4l2 3-2 3M18 14l2 3-2 3"/></svg>Pratik Modu</button>
+  <div class="sep"></div>
+  <button class="item" style="--i:2" data-open="help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>Nasıl Oynanır</button>
+  <button class="item" style="--i:3" data-open="stats"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>İstatistikler</button>
+  <button class="item" style="--i:4" data-open="giveup"><svg viewBox="0 0 24 24"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>Pes Et</button>
+  <div class="sep"></div>
+  <a class="item" style="--i:5" href="index.html"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Tüm Oyunlar</a>
+  <div class="dfoot">Her gün yeni harfler.</div>
+</nav>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="helpT">Nasıl Oynanır</h2>
+    <p>Karışık verilen <b>7 harften</b> türetilebilecek bütün kelimeleri bulun.</p>
+    <ul>
+      <li>Kelimeler en az 3 harfli olmalı; her harf bir kez kullanılır.</li>
+      <li>Boş kutular, bulmanız gereken kelimeleri uzunluklarına göre gösterir.</li>
+      <li>Listede olmayan ama sözlükte bulunan kelimeler <b>bonus</b> sayılır.</li>
+      <li>Hepsini bulunca ya da pes edince bulmaca biter.</li>
+    </ul>
+    <h3>Puanlar</h3>
+    <div class="pts"><div><b>1</b>3 harf</div><div><b>2</b>4 harf</div><div><b>4</b>5 harf</div><div><b>6</b>6 harf</div><div><b>10</b>7 harf</div></div>
+    <div class="hr"></div>
+    <p class="note">Klavyeyle de yazabilirsiniz: Enter gönderir, boşluk karıştırır.</p>
+  </div>
+</div>
+
+<div class="modal" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="statsT">İstatistikler</h2>
+    <div id="resultBox"></div>
+    <div class="stats" id="statNums"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<div class="modal" id="giveup" role="dialog" aria-modal="true" aria-labelledby="giveT">
+  <div class="card">
+    <h2 id="giveT">Pes etmek istiyor musunuz?</h2>
+    <p>Bulamadığınız kelimeler gösterilecek ve bulmaca bitecek.</p>
+    <div class="confirm"><button class="btn ghost" data-close>Vazgeç</button><button class="btn" id="giveYes">Göster</button></div>
+  </div>
+</div>
+
+<script>
+/* l: 7 harfli kök kelime, w: bulunması gereken sık kelimeler, x: bonus sayılan diğer sözlük kelimeleri */
+const PUZZLES = [{"l":"ziyaret","w":["ait","ari","art","arz","ray","ter","tez","yat","yaz","yer","zar","tarz","taze","zira","ziyaret"],"x":["ariyet","ate","ati","ayet","azit","erat","eza","iare","irat","ita","iye","rate","ret","rey","riayet","riya","riyazet","tar","tariz","tarziye","tay","taziye","terazi","terzi","tire","tiz","yar","yeti","yezit","zait","zat","zati","zayi","zer","zir","ziya"]},
+{"l":"zorlama","w":["ala","alo","ama","ara","arz","mal","mor","ram","rol","rom","zam","zar","zor","alma","azar","mala","mola","olma","oral","alarm","moral","olmaz","zorla","olamaz","zorlama"],"x":["alaz","amal","amor","araz","arma","aroma","aza","azma","azol","lam","lama","laza","lor","malaz","maral","maraz","oma","ora","razmol","roza","zom"]},
+{"l":"politik","w":["iki","ilk","kit","kol","kot","pil","tik","tip","tok","top","kilo","tipi","kilit","pilot","tilki","tipik","politik"],"x":["ilik","iplik","iti","itki","itlik","kil","kip","klip","koli","kolit","kopil","likit","lipit","lok","lop","lot","optik","pik","piko","pili","pot","tipo","tol","topik"]},
+{"l":"yakında","w":["ada","ana","anı","aya","ayı","kan","kay","yak","yan","aday","akın","ayak","ayna","aynı","ayık","ayın","dana","dayı","kana","kanı","kaya","yaka","adına","dayak","kadın","yakın","yanık","yakında"],"x":["adak","aka","akı","andık","anık","ayan","aydın","ayn","kadı","kayan","kayın","kın","kına","kıya","yad","yakı","yanak","yandık","yankı"]},
+{"l":"duyarlı","w":["arı","ayı","dal","dar","dua","dul","duy","ray","yıl","adlı","ayrı","dayı","yarı","duyar","uyarı","duyarlı"],"x":["adıl","ardıl","arlı","aylı","daru","darı","dualı","dural","uray","yad","yal","yalı","yar","yular","yır","ıra"]},
+{"l":"çıkarma","w":["ama","ara","arı","açı","kar","kaç","kır","kıç","maç","ram","çak","çam","ırk","akar","akım","amaç","araç","arka","açar","açma","açık","açım","kara","karı","kaça","mark","maça","açmak","karma","kaçar","kaçma","kırma","marka","rakam","çıkar","çıkma","karıma","kaçırma","çıkarma"],"x":["aka","akaç","akma","akça","akı","arak","arakçı","ark","arkaç","arma","arık","açkı","kam","kama","kamçı","karmaç","kaçı","kraça","kıraç","kırç","rakı","rakım","ramak","çakar","çakma","çakı","çakım","çakır","çar","çark","çarka","çarık","çıkra","çıma","çıra","çırak","çırakma","ıra","ırak","ırakça","ırama","ıramak","ırmak"]},
+{"l":"kocaman","w":["ama","ana","cam","can","kan","nam","ona","aman","amca","anam","anca","anma","cana","kana","koca","ocak","onca","ancak","kanca","kocama","kocaman"],"x":["aka","akma","akman","anmak","caka","kam","kama","kanma","kano","kom","koma","konma","mana","manca","mano","moka","nacak","nom","oma","omca","onama","onamak","onma","onmak"]},
+{"l":"istekli","w":["iki","ile","ilk","kel","kes","kit","sek","sel","set","tek","tel","tik","eksi","eski","etik","etki","etli","lise","site","istek","kilit","kitle","liste","tilki","etkili","kilise","istekli"],"x":["ekili","ekli","ekti","elik","elit","elti","esik","etil","etlik","ileti","iletki","ilik","ilke","isli","iti","itki","itlik","kesit","ket","kil","kile","kils","kilsi","kist","liet","likit","seki","sekili","setik","sili","silik","silki","sit","sitil","ski","stil","tekil","tekli","telis","telsi","tike","tikel"]},
+{"l":"merhaba","w":["aha","ama","ara","bar","ham","hem","her","ram","hara","heba","amber","bahar","haber","merhaba"],"x":["aba","abra","ahar","ambar","arma","barem","brahma","bre","ehram","hab","har","harabe","haram","harbe","hare","harem","mahra","mera","reha"]},
+{"l":"oksijen","w":["jen","kes","kin","sek","sen","sin","son","eksi","eski","iken","inek","nesi","kesin","sinek","oksijen"],"x":["ekin","eko","eksin","enik","esik","esin","ikon","koni","oje","oniks","ons","seki","sine","ski","sone"]},
+{"l":"ulaşmak","w":["ala","ama","aşk","kal","kum","kuş","mal","alma","kala","kamu","maaş","mala","uşak","şaka","akşam","almak","aşmak","kalma","kumaş","makul","ukala","ulaşmak"],"x":["aka","akma","almaş","amal","aşma","kam","kama","kaş","kul","kula","kuma","kumla","lak","laka","lam","lama","malak","maş","maşa","maşuk","maşuka","muş","ulak","ulam","ulama","ulamak","ulaşma","şak","şakul","şal","şalak","şama","şua"]},
+{"l":"yarışma","w":["ama","ara","arı","aya","ayı","aşı","ram","ray","yaş","ayrı","aşar","maaş","marş","maya","yara","yarı","yaşa","yarım","yarış","yaşam","ayırma","yarışma"],"x":["arayış","arma","arya","arış","arş","ayar","ayma","ayrım","ayrışma","aşma","aşım","aşırma","marya","maş","maşa","yama","yar","yaraş","yarma","yır","ıra","ırama","şama","şamar","şıra"]},
+{"l":"silahlı","w":["ali","asi","hal","has","his","ila","sal","asil","asıl","hali","halı","illa","sahi","salı","ihlal","sahil","silah","silahlı"],"x":["ahi","alil","allı","asli","ası","hail","halis","hasıl","hilal","ihlas","ihlaslı","ilah","isal","ishal","lal","sah","sallı","sıla","ıslah"]},
+{"l":"yanında","w":["ada","ana","anı","aya","ayı","nan","yan","aday","ayna","aynı","ayın","dana","dayı","adına","anında","yanında"],"x":["ayan","aydın","ayn","nadan","nanay","yad"]},
+{"l":"yaratık","w":["ara","art","arı","ata","aya","ayı","kar","kat","kay","kır","ray","tak","tık","yak","yat","ırk","akar","arka","artı","atak","atık","ayak","ayrı","ayık","kara","kart","karı","katı","kaya","yaka","yara","yarı","artık","kayıt","yakıt","yatak","yatır","yaratık"],"x":["aka","aktar","akı","arak","ark","arkıt","arya","arık","atkı","ayar","ayartı","ayrık","ayrıt","ayıt","katar","katır","kayar","kayra","kayır","kıraat","kırat","kıray","kıt","kıta","kıya","rakı","taka","takı","tar","tarak","tay","taya","tır","tırak","yakarı","yakı","yar","yarak","yaratı","yarka","yarık","yatı","yatık","yır","ıra","ırak"]},
+{"l":"düzenli","w":["dil","din","diz","dün","düz","ile","zen","zil","deli","deniz","denli","düzen","düzine","düzenli"],"x":["deni","dine","dize","dizel","düze","edi","enli","ledün","zinde","zül","ülen"]},
+{"l":"sıradan","w":["ada","ana","anı","ara","arı","dar","san","sır","dana","dans","sana","sara","sarı","sıra","adına","sıradan"],"x":["anasır","arda","arsa","asa","asar","ası","asır","dara","darı","nadas","nar","nara","nas","nasır","randa","sadır","sanrı","sanı","ıra"]},
+{"l":"boyunca","w":["abu","bay","boy","can","ona","yan","boya","buna","onay","onca","oyun","banyo","boyun","bunca","boyuna","boyunca"],"x":["acun","acyo","ayn","ban","boa","boca","boyca","boyna","bun","oba","obua","oya","uca","yonca","yuna"]},
+{"l":"haziran","w":["aha","ana","ani","ara","ari","arz","han","haz","zar","azar","hain","hani","hara","izah","zina","zira","arazi","haziran"],"x":["ahar","ahi","ahir","ahiz","ahraz","araz","ariza","arzani","aza","haiz","har","haza","hazan","hazar","hazari","hazin","hin","hiza","ihraz","ihzar","inha","izan","izhar","nar","nara","narh","naz","nazar","nazari","nazir","niza","ranza","rina","zahir","zan","zinhar","zir"]},
+{"l":"küresel","w":["kel","kes","kül","sek","sel","eser","kere","küre","leke","lüks","süre","ülke","keser","küresel"],"x":["eke","ekler","ekser","ekü","elek","erek","erk","erke","eslek","esre","kele","keler","ker","keres","kese","kesel","kesre","kür","küs","lük","reel","sekel","seküler","sele","selek","ser","sere","sürek","ülser","üre"]},
+{"l":"ihtimal","w":["ait","ali","alt","hal","ham","hat","hit","ila","ima","mai","mal","mat","mil","mit","tam","tim","hali","halt","imha","mail","mali","halim","ihmal","ilahi","ilham","itham","talih","ihtimal"],"x":["ahi","ahit","alim","amil","amit","ati","hail","hami","hamil","hamt","hatim","hatmi","hilat","hitam","iham","ihtilam","ilah","ilam","ilim","imal","imla","ita","ithal","iti","itila","lahit","lam","lim","limit","malt","miat","milat","mitil","tahmil","tal","tali","talim"]},
+{"l":"denizci","w":["cin","din","diz","ini","zen","dizi","ince","inci","indi","izci","izin","nice","deniz","zenci","denizci"],"x":["deni","dince","dinci","dine","dize","dizin","edi","ezici","neci","zinde"]},
+{"l":"yumuşak","w":["aşk","kay","kum","kuş","yak","yaş","kamu","kuyu","uyku","uyum","uşak","kumaş","uymak","uyuma","uyumak","yumuşak"],"x":["kam","kaş","kuma","kuyum","maş","maşuk","muş","umu","uyak","uyma","uyuşma","uyuşmak","yamuk","yuma","yumak","yumuk","şak","şua"]},
+{"l":"kıyamet","w":["ayı","kat","kay","mat","tak","tam","tek","tık","yak","yat","yem","akım","atık","atım","ayık","katı","kayıt","takım","yakıt","kıyamet"],"x":["akı","ate","atkı","atmık","ayet","ayıt","emay","eytam","kam","kame","kamet","katım","kayme","kem","ket","kıt","kıta","kıya","kıyam","kıyma","kıymet","maket","met","meta","mey","takı","tay","tem","tema","tıkma","yakı","yakım","yatı","yatık","yatım","yek","yekta","yıkma"]},
+{"l":"ihtiyar","w":["ait","ari","art","hat","hay","hit","iri","iyi","ray","yat","hart","tarih","ihtiyar"],"x":["ahi","ahir","ahit","ati","har","ihtar","ihtira","ihya","irat","ita","iti","raht","riya","tar","tarh","tay","yar"]},
+{"l":"komiser","w":["kes","kim","mor","rom","sek","ekim","eksi","emir","erik","esir","eski","krem","reis","risk","seri","sirk","skor","kesim","kimse","mikro","resim","sirke","komiser"],"x":["eko","emik","erim","erk","eros","esik","esim","eskrim","esrik","irkme","irs","kem","ker","kerim","kesir","kir","kom","komi","kor","korse","krom","krome","kros","meri","mersi","mir","mis","misk","mors","remi","seki","sem","ser","serim","sim","sirmo","ski","som"]},
+{"l":"yaşasın","w":["ana","anı","aya","ayı","aşı","san","say","yan","yas","yaş","ayna","aynı","ayın","sana","sayı","yasa","yaşa","şans","sayın","yaşasın"],"x":["asa","ası","ayan","ayn","naaş","nas","sanı","saya","sayış","yansı","yanış","yısa","şan","şayan"]},
+{"l":"tersine","w":["net","sen","set","sin","ten","ter","erin","eser","esir","nesi","reis","sene","sent","seri","sert","site","ters","tren","ister","serin","tenis","ertesi","neresi","tersine"],"x":["enir","ense","enser","eren","eriten","erte","esen","esin","esire","esre","ester","eten","eter","irs","irsen","nere","nesir","nite","resen","rest","ret","rint","senet","senir","senit","ser","sere","seren","seter","setir","setre","sine","siren","sit","sten","ster","tein","tere","teres","tesir","tesri","tin","tiner","tire"]},
+{"l":"senatör","w":["ant","art","net","san","sen","set","sör","tan","ten","ter","öte","sent","sert","star","tane","ters","tren","tören","senatör"],"x":["antre","ast","ate","ensar","erat","esna","nar","nas","nötr","rant","rast","rate","rest","ret","saten","sena","ser","sera","sten","ster","tar","tas","teras","trans","tras","tör","töre","tös","ören","örs","ötre"]},
+{"l":"çalışma","w":["ala","ama","açı","aşı","mal","maç","çal","çam","alma","alış","amaç","açma","açım","aşçı","maaş","mala","maça","çalma","çalış","amaçlı","çalışma"],"x":["alaşım","almaç","almaş","alçı","alım","alıç","alışma","amal","açılma","açış","aşma","aşılma","aşım","lam","lama","maaşlı","malç","maş","maşa","maşalı","çalı","çalım","çıma","şal","şama","şamalı"]},
+{"l":"garanti","w":["ait","ana","ani","ant","ara","ari","art","ata","gri","tan","gitar","garanti"],"x":["atari","ati","gaita","gani","gar","granit","inat","irat","ita","naat","nar","nara","rant","rina","ring","ringa","rint","tar","tin","tiran"]},
+{"l":"faydalı","w":["ada","ala","aya","ayı","dal","laf","yıl","aday","adlı","alay","alfa","dayı","fayda","dayalı","faydalı"],"x":["adalı","adıl","afal","ayal","ayla","aylı","dalya","faal","fal","falya","fay","yad","yafa","yal","yalı"]},
+{"l":"kıyafet","w":["ayı","kat","kay","tak","tek","tık","yak","yat","atık","ayık","kafe","katı","kayıt","yakıt","kıyafet"],"x":["afet","aft","akı","ate","atkı","atıf","ayet","ayıt","fak","fay","fek","ket","kıt","kıta","kıya","takı","tay","tayf","tef","yakı","yatı","yatık","yek","yekta"]},
+{"l":"ağırlık","w":["arı","ağı","kal","kar","kıl","kır","ırk","aklı","akıl","ağrı","ağır","karı","kral","ılık","karlı","ağırlık"],"x":["akı","alık","ark","arlı","arık","arılık","ağlı","ağrılı","ağıl","ağılı","karılı","kılağı","kılır","kırağı","kığ","kığı","lak","lıkır","lığ","rakı","ıra","ırak","ığıl"]},
+{"l":"etkisiz","w":["iki","kes","kez","kit","sek","set","siz","tek","tez","tik","eksi","eski","etik","etki","ezik","ikiz","site","size","zeki","istek","sekiz","etkisiz"],"x":["eksiz","ekti","esik","eskiz","etsiz","iti","itki","kesit","ket","kist","seki","setik","sezi","sit","ski","tike","tiz"]},
+{"l":"eldiven","w":["dev","dil","din","ile","deli","deve","elde","evin","evli","denli","elden","eldiven"],"x":["deni","dine","ede","edi","enli","nev","veli"]},
+{"l":"çatışma","w":["ama","ata","açı","aşı","mat","maç","tam","taç","taş","çam","amaç","atma","atım","atış","açma","açım","aşçı","maaş","maça","çatı","taşıma","çatışma"],"x":["ataş","atçı","atışma","açıt","açış","aşma","aşım","aşıt","maş","maşa","taam","taşma","taşçı","taşım","çamat","çat","çatma","çatış","çaşıt","çıma","çıt","çıta","şama","şat"]},
+{"l":"mahalle","w":["aha","ala","ama","hal","ham","hem","mal","alma","elma","hala","hale","mala","allah","hamle","helal","mahalle"],"x":["alem","allame","allem","amal","amel","ela","halel","hamal","hamla","hela","lal","lala","lale","lam","lama","lame","lamel","leh","mahal","meal","melal"]},
+{"l":"oyuncak","w":["can","kan","kay","koy","ona","yak","yan","yok","koca","konu","koyu","ocak","onay","onca","oyun","koyun","oyuncak"],"x":["acun","acyo","ayn","cuk","kano","oya","oynak","oyuk","uca","uyak","yonca","yuna","yunak"]},
+{"l":"efendim","w":["def","din","fen","men","deme","emin","mide","demin","edinme","efendi","medeni","efendim"],"x":["defi","defin","define","defne","dem","deni","denim","denme","dine","dinme","ede","edi","edim","efe","emen","fide","inme","menfi","meni","mine","nedim","nedime","nem","nemf","nim"]},
+{"l":"kişisel","w":["iki","ile","ilk","kel","kes","keş","leş","sek","sel","eksi","eski","kişi","lise","eşlik","klişe","şekil","kilise","kişisel"],"x":["ekili","ekli","eksiliş","ekşi","ekşili","elik","esik","eşik","eşli","ilik","ilke","isli","işkil","işlek","işli","işlik","kesiliş","kesiş","kil","kile","kils","kilsi","seki","sekili","sekiş","sili","silik","siliş","silki","ski","şek","şike","şikeli","şile"]},
+{"l":"nasılsa","w":["ala","ana","anı","lan","sal","san","alan","alın","asla","asıl","salı","sana","aslan","nasıl","sanal","nasılsa"],"x":["anal","analı","anasıl","asa","asal","aslansı","ası","nal","nas","sala","salsa","sanlı","sanı","sası","sıla"]},
+{"l":"solucan","w":["alo","can","lan","ona","sal","san","sol","son","onca","ulan","salon","solucan"],"x":["acul","acun","laso","loca","lonca","nal","nas","onlu","ons","sac","solcu","soncul","sonlu","sual","suna","uca"]},
+{"l":"madalya","w":["ada","ala","ama","aya","dal","mal","adam","aday","alay","alma","mala","maya","adama","damla","madalya"],"x":["amal","ayal","ayla","aylama","ayma","dalama","dalma","dalya","dam","dama","dayama","lam","lama","maada","malya","yad","yal","yalama","yama"]},
+{"l":"eskiden","w":["dek","dik","din","kes","kin","sek","sen","sin","denk","disk","eksi","eski","iken","inek","kedi","nesi","sene","denek","desen","diken","esnek","kendi","kesen","kesin","sende","sinek","eskiden"],"x":["deni","dikse","dine","dinek","dink","ede","edi","edik","eke","ekin","eksen","eksin","endeks","enek","enik","ense","esen","esik","esin","indeks","kene","kese","nekes","seki","sendik","senek","sine","ski"]},
+{"l":"yetkili","w":["iki","ile","ilk","iyi","kel","kit","tek","tel","tik","etik","etki","etli","kilit","kitle","tilki","yetki","etkili","yetkili"],"x":["ekili","ekli","ekti","elik","elit","elti","etil","etlik","ileti","iletki","ilik","ilke","iti","itki","itlik","iye","iyelik","ket","kil","kile","ley","liet","likit","tekil","tekli","tike","tikel","yek","yel","yeti","yetik","yitik"]},
+{"l":"yararlı","w":["ala","ara","arı","aya","ayı","ray","yıl","alay","ayrı","yara","yarı","yarar","arılar","yaralı","yararlı"],"x":["arlı","arya","ayal","ayar","ayarlı","ayla","aylı","yal","yalı","yar","yır","ıra"]},
+{"l":"tanıdık","w":["ant","anı","kan","kat","tak","tan","tık","akın","atık","kanı","katı","tank","tanı","kadın","kanıt","tanık","akıntı","tanıdık"],"x":["akı","andık","anık","anıt","atkı","kadı","kant","kın","kına","kıt","kıta","takı","tın","tını"]},
+{"l":"nazikçe","w":["ani","kan","kaz","kaç","kez","kin","zen","çak","çan","çek","ezik","iken","ikna","inek","keçi","zeki","zina","çeki","enkaz","nazik","nazikçe"],"x":["akne","akçe","ekin","enik","eza","ezan","ezani","ezinç","iane","ika","ikaz","inak","ineç","inç","izan","izaç","kani","kazein","keza","naz","naçiz","niza","zan","zaç","çenk"]},
+{"l":"izlemek","w":["ile","ilk","kel","kez","kim","mil","zil","ekim","elim","emek","ezik","leke","lime","zeki","melek","melez","emekli","izleme","kelime","izlemek"],"x":["eke","ekilme","eklem","ekli","ekme","elek","elem","elik","elmek","elzem","emel","emik","emlik","emzik","ezel","ezilme","ezilmek","ezme","ezmek","ilke","ilme","ilmek","izlek","izlem","kele","kelem","kem","keme","kil","kile","lim","melik","melike","meze","mezelik","zem"]},
+{"l":"kapatma","w":["ama","ata","kap","kat","mat","pat","tak","tam","atak","atma","kamp","atmak","takma","kapatma"],"x":["aka","akma","apak","atama","atamak","kam","kama","kapama","kapma","katma","makat","makta","mapa","matkap","pak","pakt","pata","patak","taam","taka","tapa","tapma","tapmak"]},
+{"l":"deneyim","w":["din","men","ney","yem","yen","deme","diye","emin","mide","niye","yedi","yeme","yeni","yine","demin","deney","deyim","yemin","edinme","medeni","deneyim"],"x":["dem","deni","denim","denme","deyi","dine","dinme","ede","edi","edim","emen","inme","iye","meni","mey","midye","mine","nedim","nedime","nem","nim","yedme","yemeni","yenme"]},
+{"l":"kurbağa","w":["abu","ara","ağa","bar","bağ","kar","kur","akar","arka","kaba","kara","uğra","kurbağa"],"x":["aba","abra","aka","akur","arak","ark","barak","bark","barka","bağa","bura","buğra","kura","ruba","ukba","urba","uğrak"]},
+{"l":"çıkarım","w":["arı","açı","kar","kaç","kır","kıç","maç","ram","çak","çam","ırk","akım","açık","açım","karı","mark","kırma","çıkar","çıkma","ırkçı","çıkarım"],"x":["akı","ark","arık","arıkçı","açkı","kam","kamçı","kaçı","kıraç","kırç","kırım","rakı","rakım","çakı","çakım","çakır","çar","çark","çarık","çıkra","çıkı","çıma","çıra","çırak","ıra","ırak","ırmak"]},
+{"l":"mazeret","w":["art","arz","mat","ram","tam","ter","tez","zam","zar","etme","mart","tarz","taze","metre","mezar","mazeret"],"x":["ate","emare","emaret","emraz","erat","erme","erte","eter","eza","ezme","mera","meret","mert","met","meta","mezat","meze","mezra","rate","ret","reze","tar","tem","tema","tere","terme","zat","zeamet","zem","zer"]},
+{"l":"tamamen","w":["ama","ana","ant","ata","mat","men","nam","net","tam","tan","ten","aman","amma","anam","anma","atma","mama","tane","tamam","tamamen"],"x":["amme","ate","eman","enam","mana","manat","matem","memat","met","meta","metan","naat","name","nem","nema","taam","tem","tema"]},
+{"l":"buradan","w":["abd","abu","ada","ana","ara","bar","dar","dua","bana","buna","dana","barda","bunda","bardan","burada","buradan"],"x":["aba","abra","arda","bad","ban","baran","branda","bun","bura","dara","daru","duba","dubar","dubara","dun","nar","nara","nur","randa","ruba","run","uran","urba"]},
+{"l":"kabalık","w":["ala","bal","kal","kıl","abla","aklı","akıl","kaba","kaka","kala","balık","kabak","kabalık"],"x":["aba","abalı","ablak","aka","akak","akbalık","aklık","akı","alık","bakkal","bakla","bakı","bala","balkı","kak","kalak","kalık","lak","laka"]},
+{"l":"altıncı","w":["acı","alt","ant","anı","can","lan","tan","altı","alın","atlı","tanı","acılı","altın","alıcı","canlı","alıntı","altıncı"],"x":["antlı","anıt","anıtlı","atıcı","atıl","atılı","nal","tal","tın","tını","ılıca"]},
+{"l":"satılık","w":["alt","kal","kas","kat","kıl","sal","sık","tak","tık","ısı","aklı","akıl","altı","asıl","atlı","atık","kast","katı","klas","kısa","salt","salı","sıkı","ılık","asılı","kaslı","katlı","saklı","ıslak","ıslık","takılı","kasıtlı","satılık"],"x":["aks","akı","altık","alık","ask","asklı","askı","askılı","aslık","ast","ası","asık","asıltı","atkı","atkılı","atıl","atılı","kalıt","kasıt","kısıt","kıt","kıta","kıtal","lak","sak","sakıt","saltık","salık","satı","sıkıt","sıla","takı","tal","talk","tas","tıkalı","tıs","ıska","ıskat","ısıl","ıtlak"]}];
+
+const PTS = { 3: 1, 4: 2, 5: 4, 6: 6, 7: 10 };
+const EPOCH = new Date(2026, 0, 1);
+const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+
+const $ = s => document.querySelector(s);
+const up = s => s.toLocaleUpperCase("tr-TR");
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const cmp = new Intl.Collator("tr").compare;
+
+let stats = store.get("anagram-stats", { played: 0, perfect: 0, streak: 0, best: 0, lastDay: null, totalPct: 0 });
+let mode, day, pid, P, req, extra, order, picked, found, bonus, over, gaveUp, lastNew = null;
+
+function dayIndex() {
+  const n = new Date();
+  return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
+}
+const dailyPid = d => ((d * 29 + 13) % PUZZLES.length + PUZZLES.length) % PUZZLES.length;
+function shuffled(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const points = w => PTS[Math.min(7, w.length)] || 0;
+const scoreOf = () => [...found, ...bonus].reduce((s, w) => s + points(w), 0);
+const cur = () => picked.map(i => order[i]).join("");
+
+/* ---------- Render ---------- */
+function renderSlots() {
+  const byLen = {};
+  req.forEach(w => (byLen[w.length] ||= []).push(w));
+  const lens = Object.keys(byLen).map(Number).sort((a, b) => b - a);
+  $("#slots").innerHTML = lens.map(L => `<div class="grp"><h4>${L} harfli · ${byLen[L].filter(w => found.includes(w)).length}/${byLen[L].length}</h4><div class="ws">${
+    byLen[L].sort(cmp).map(w => {
+      const got = found.includes(w), show = got || over;
+      return `<div class="w${got ? " got" : over ? " rev" : ""}${w === lastNew ? " new" : ""}">${[...w].map((ch, i) => `<i style="--d:${i}">${show ? up(ch) : ""}</i>`).join("")}</div>`;
+    }).join("")}</div></div>`).join("") +
+    (bonus.length ? `<div class="grp"><h4>Bonus · ${bonus.length}</h4><div class="bonus">${bonus.slice().sort(cmp).map(w => `<b>${up(w)}</b>`).join(", ")}</div></div>` : "");
+  const n = found.length;
+  $("#cnt").textContent = `${n}/${req.length}`;
+  $("#fill").style.width = n / req.length * 100 + "%";
+  $("#score").textContent = scoreOf() + " puan";
+}
+function renderPlay() {
+  $("#input").innerHTML = `<span>${up(cur())}</span><span class="caret"></span>`;
+  [...$("#letters").children].forEach((b, i) => { b.textContent = up(order[i]); b.classList.toggle("used", picked.includes(i)); });
+  $("#enterBtn").disabled = $("#delBtn").disabled = $("#mixBtn").disabled = over;
+}
+function buildLetters() {
+  $("#letters").innerHTML = order.map((_, i) => `<button class="lt" data-i="${i}"></button>`).join("");
+}
+
+/* ---------- Oyun ---------- */
+function pick(i) {
+  if (over || picked.includes(i)) return;
+  picked.push(i);
+  renderPlay();
+}
+function typeChar(ch) {
+  const i = order.findIndex((c, k) => c === ch && !picked.includes(k));
+  if (i >= 0) pick(i);
+}
+function del() { if (over) return; picked.pop(); renderPlay(); }
+async function mix() {
+  if (over) return;
+  const L = $("#letters");
+  L.classList.add("mix");
+  await wait(220);
+  const word = cur();
+  order = shuffled(order);
+  // seçili harfleri yeni yerlerinde koru
+  picked = [];
+  for (const ch of word) { const i = order.findIndex((c, k) => c === ch && !picked.includes(k)); picked.push(i); }
+  renderPlay();
+  L.classList.remove("mix");
+}
+function reject(msg) {
+  toast(msg);
+  const el = $("#input"); el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+  setTimeout(() => { picked = []; renderPlay(); }, 450);
+}
+function enter() {
+  if (over) return;
+  const w = cur();
+  if (!w) return;
+  if (w.length < 3) return reject("Çok kısa");
+  if (found.includes(w) || bonus.includes(w)) return reject("Zaten bulundu");
+  if (req.includes(w)) {
+    found.push(w);
+    lastNew = w;
+    toast(w.length === 7 ? `Harika! +${points(w)}` : `+${points(w)}`);
+  } else if (extra.has(w)) {
+    bonus.push(w);
+    lastNew = null;
+    toast(`Bonus kelime! +${points(w)}`);
+  } else return reject("Listede yok");
+  const el = $("#input"); el.classList.remove("ok"); void el.offsetWidth; el.classList.add("ok");
+  setTimeout(() => { el.classList.remove("ok"); picked = []; renderPlay(); }, 450);
+  if (found.length === req.length) over = true;
+  save();
+  renderSlots();
+  const slot = document.querySelector(".w.new");
+  if (slot) slot.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  if (over) finish();
+}
+function giveUp() {
+  closeAll();
+  if (over) return;
+  over = true; gaveUp = true;
+  picked = [];
+  save();
+  renderSlots(); renderPlay();
+  finish();
+}
+function finish() {
+  if (mode === "daily") {
+    const rec = store.get("anagram-recorded", []);
+    if (!rec.includes(day)) {
+      rec.push(day); store.set("anagram-recorded", rec.slice(-60));
+      stats.played++;
+      stats.totalPct += Math.round(found.length / req.length * 100);
+      if (!gaveUp) stats.perfect++;
+      stats.streak = stats.lastDay === day - 1 ? stats.streak + 1 : 1;
+      stats.best = Math.max(stats.best, stats.streak);
+      stats.lastDay = day;
+      store.set("anagram-stats", stats);
+    }
+  }
+  toast(gaveUp ? `${found.length}/${req.length} kelime buldunuz` : "Hepsini buldunuz!", 1900);
+  setTimeout(() => { if (!isOpen()) open("stats"); }, 1500);
+}
+
+function start(m, fresh = false) {
+  mode = m;
+  let s;
+  if (m === "daily") {
+    day = dayIndex();
+    pid = dailyPid(day);
+    s = store.get("anagram-daily", null);
+    if (!s || s.day !== day) s = null;
+  } else {
+    s = fresh ? null : store.get("anagram-practice", null);
+    if (s && !PUZZLES[s.pid]) s = null;
+    if (s) pid = s.pid;
+    else {
+      let p;
+      do p = Math.floor(Math.random() * PUZZLES.length); while (p === pid || p === dailyPid(dayIndex()));
+      pid = p;
+    }
+  }
+  P = PUZZLES[pid];
+  req = P.w;
+  extra = new Set(P.x);
+  found = s ? s.found : [];
+  bonus = s ? s.bonus : [];
+  gaveUp = !!(s && s.gaveUp);
+  over = gaveUp || found.length === req.length;
+  do order = shuffled([...P.l]); while (order.join("") === P.l);
+  picked = [];
+  lastNew = null;
+  save();
+  buildLetters();
+  renderSlots();
+  renderPlay();
+  renderSub();
+  document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+}
+function save() {
+  const st = { found, bonus, gaveUp };
+  if (mode === "daily") store.set("anagram-daily", { day, ...st });
+  else store.set("anagram-practice", { pid, ...st });
+}
+function renderSub() {
+  const sub = $("#sub");
+  if (mode === "daily") {
+    const date = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+    sub.innerHTML = `<span>${date}</span><span class="dot"></span><span>#${day + 1}</span>`;
+  } else {
+    sub.innerHTML = `<span>Pratik modu</span><button class="chip" id="newPz">Yeni harfler</button>`;
+    $("#newPz").onclick = () => start("practice", true);
+  }
+}
+
+/* ---------- İstatistik ---------- */
+function renderStats() {
+  const today = dayIndex();
+  const streak = stats.lastDay !== null && stats.lastDay >= today - 1 ? stats.streak : 0;
+  const avg = stats.played ? Math.round(stats.totalPct / stats.played) : 0;
+  const longest = req.filter(w => w.length === 7);
+  $("#resultBox").innerHTML = over
+    ? `<div class="result"><div class="big">${found.length}/${req.length}</div><p>${scoreOf()} puan${bonus.length ? ` · ${bonus.length} bonus` : ""} · 7 harfli: <b>${longest.map(up).join(", ")}</b></p></div><h3>Genel</h3>`
+    : "";
+  $("#statNums").innerHTML = [[stats.played, "Oynanan"], [stats.perfect, "Tamamı"], [avg + "%", "Ort. Bulunan"], [streak, "Seri"]]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+  const foot = $("#foot");
+  if (!over) { foot.innerHTML = ""; return; }
+  if (mode === "daily") {
+    foot.innerHTML = `<div><small>Sonraki bulmaca</small><div class="clock" id="clock"></div></div><button class="btn" id="shareBtn">${ICON_SHARE}Paylaş</button>`;
+    $("#shareBtn").onclick = share;
+    tick();
+  } else {
+    foot.innerHTML = `<div></div><button class="btn" id="againBtn">Yeni harfler</button>`;
+    $("#againBtn").onclick = () => { closeAll(); setTimeout(() => start("practice", true), 250); };
+  }
+}
+function tick() {
+  const el = $("#clock");
+  if (el) {
+    const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+    const s = Math.max(0, Math.floor((next - n) / 1000));
+    el.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":");
+  }
+  if (mode === "daily" && dayIndex() !== day) start("daily");
+}
+setInterval(tick, 1000);
+async function share() {
+  const pct = Math.round(found.length / req.length * 100);
+  const bar = "🟩".repeat(Math.round(pct / 10)) + "⬜".repeat(10 - Math.round(pct / 10));
+  const text = `Anagram #${day + 1}: ${found.length}/${req.length} kelime · ${scoreOf()} puan\n${bar}`;
+  if (navigator.share && matchMedia("(pointer:coarse)").matches) {
+    try { await navigator.share({ text }); return; } catch {}
+  }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); }
+  catch { toast("Kopyalanamadı"); }
+}
+
+/* ---------- Toasts ---------- */
+function toast(msg, ms = 1300) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+
+/* ---------- Overlays ---------- */
+const scrim = $("#scrim"), drawer = $("#drawer");
+function isOpen() { return scrim.classList.contains("open"); }
+function closeAll() {
+  scrim.classList.remove("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  document.activeElement && document.activeElement.blur();
+}
+function open(id) {
+  const wasDrawer = drawer.classList.contains("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  if (id === "stats") renderStats();
+  scrim.classList.add("open");
+  setTimeout(() => $("#" + id).classList.add("open"), wasDrawer ? 180 : 0);
+}
+$("#menuBtn").onclick = () => { scrim.classList.add("open"); drawer.classList.add("open"); };
+scrim.onclick = closeAll;
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeAll(); }));
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"), c = e.target.closest("[data-close]"), md = e.target.closest("[data-mode]");
+  if (o) open(o.dataset.open);
+  else if (c) closeAll();
+  else if (md) { closeAll(); if (md.dataset.mode !== mode) setTimeout(() => start(md.dataset.mode), 200); }
+});
+$("#letters").addEventListener("click", e => { const b = e.target.closest(".lt"); if (b) pick(+b.dataset.i); });
+$("#delBtn").onclick = del;
+$("#enterBtn").onclick = enter;
+$("#mixBtn").onclick = mix;
+$("#giveYes").onclick = giveUp;
+document.querySelectorAll(".play .btn").forEach(b => b.addEventListener("mousedown", e => e.preventDefault()));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") return closeAll();
+  if (e.ctrlKey || e.metaKey || e.altKey || isOpen()) return;
+  if (e.key === "Enter") { e.preventDefault(); enter(); }
+  else if (e.key === "Backspace") { e.preventDefault(); del(); }
+  else if (e.key === " ") { e.preventDefault(); mix(); }
+  else if (e.key.length === 1) typeChar(e.key.toLocaleLowerCase("tr-TR"));
+});
+
+/* ---------- Boot ---------- */
+start("daily");
+if (!store.get("anagram-seen", false)) { store.set("anagram-seen", true); setTimeout(() => open("help"), 400); }
+</script>
+</body>
+</html>

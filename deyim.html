@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Deyim — Günlük Söz Bulmacası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#f1f1ef; --key-hover:#e8e8e5; --soft:#f7f7f5;
+  --correct:#6aa780; --present:#d8b257; --other:#7ea6d6; --absent:#9da1a6;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --t:30px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  -webkit-tap-highlight-color:transparent;overflow:hidden;
+}
+button{font:inherit;color:inherit}
+.app{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+/* Header */
+header{flex:none;border-bottom:1px solid var(--line)}
+.bar{max-width:520px;margin:0 auto;height:60px;padding:0 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bar .right{display:flex;justify-content:flex-end;gap:2px}
+.title{font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;line-height:1}
+.ib{width:40px;height:40px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:background-color .25s var(--ease),transform .15s var(--ease)}
+.ib:hover{background:var(--soft)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* Main */
+main{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 16px 12px}
+.sub{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);letter-spacing:.01em;min-height:26px;flex-wrap:wrap;justify-content:center}
+.sub .dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background-color .25s var(--ease),border-color .25s}
+.chip:hover{background:var(--soft);border-color:var(--line-strong)}
+.cat{display:inline-flex;align-items:center;gap:8px;border-radius:99px;background:#eef3fa;color:#4f78a8;font-size:12.5px;font-weight:700;padding:6px 12px;letter-spacing:.02em}
+.board{display:flex;flex-direction:column;gap:12px;margin:auto 0}
+.guess{display:flex;flex-direction:column;align-items:center;gap:4px}
+.guess.shake{animation:shake .45s var(--ease)}
+.ln{display:flex;gap:calc(var(--t) * .45)}
+.wd{display:flex;gap:3px}
+.tile{width:var(--t);height:calc(var(--t) * 1.12);border-radius:calc(var(--t) * .18);border:1.5px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:calc(var(--t) * .52);line-height:1;background:#fff;
+  transition:background-color .3s var(--ease),border-color .3s,color .3s}
+.tile.typed{border-color:var(--line-strong)}
+.tile.typed span{animation:ink .2s var(--ease)}
+.tile.cur{box-shadow:0 0 0 2px var(--ink)}
+.tile[data-s]{color:#fff;border-color:transparent}
+.tile[data-s=correct]{background:var(--correct)}
+.tile[data-s=present]{background:var(--present)}
+.tile[data-s=other]{background:var(--other)}
+.tile[data-s=absent]{background:var(--absent)}
+.tile.flip{animation:flip .5s var(--ease) both;animation-delay:calc(var(--d) * 45ms)}
+.guess.idle .tile{border-style:dashed;border-color:#ececea}
+.guess.bounce .tile{animation:bounce .8s var(--ease) both;animation-delay:calc(var(--d) * 35ms)}
+
+@keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+@keyframes ink{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-6px)}40%,60%{transform:translateX(6px)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}35%{transform:translateY(-22%)}60%{transform:translateY(3%)}}
+
+/* Keyboard */
+.kb{flex:none;width:100%;max-width:520px;margin:0 auto;padding:6px 8px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:7px;user-select:none;-webkit-user-select:none}
+.kr{display:flex;gap:5px;justify-content:center}
+.key{flex:1;max-width:44px;height:52px;border:0;border-radius:9px;background:var(--key);font-weight:600;font-size:15px;display:grid;place-items:center;cursor:pointer;padding:0;touch-action:manipulation;
+  transition:background-color .4s var(--ease),color .4s var(--ease),transform .12s var(--ease)}
+.key:hover{background:var(--key-hover)}
+.key:active{transform:scale(.93)}
+.key.wide{flex:1.6;max-width:70px;font-size:12px;letter-spacing:.03em}
+.key svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.key[data-s]{color:#fff}
+.key[data-s=correct]{background:var(--correct)}
+.key[data-s=present]{background:var(--present)}
+.key[data-s=other]{background:var(--other)}
+.key[data-s=absent]{background:var(--absent)}
+
+/* Toasts */
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s var(--ease),transform .35s var(--ease);white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-6px) scale(.97)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+
+/* Overlays */
+.scrim{position:fixed;inset:0;background:rgba(250,250,248,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:20px;z-index:50;pointer-events:none}
+.card{width:100%;max-width:410px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(20,20,20,.12),0 2px 8px rgba(20,20,20,.04);padding:26px 26px 24px;position:relative;
+  opacity:0;transform:translateY(14px) scale(.975);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.modal.open{pointer-events:auto}
+.modal.open .card{opacity:1;transform:none}
+.card h2{font-weight:700;font-size:21px;margin:0 0 14px;letter-spacing:-.015em}
+.card h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px}
+.card p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#3a3a3d}
+.card ul{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.6;color:#3a3a3d}
+.close{position:absolute;top:14px;right:14px}
+.hr{height:1px;background:var(--line);margin:18px 0}
+.note{font-size:13px!important;color:var(--muted)!important}
+.ex{display:flex;gap:3px;margin:10px 0 6px}
+.mini{width:30px;height:33px;border-radius:6px;border:1.5px solid var(--line-strong);display:grid;place-items:center;font-weight:700;font-size:15px}
+.mini.sp{border:0;width:10px}
+.mini.c{background:var(--correct);border-color:var(--correct);color:#fff}
+.mini.p{background:var(--present);border-color:var(--present);color:#fff}
+.mini.o{background:var(--other);border-color:var(--other);color:#fff}
+.mini.a{background:var(--absent);border-color:var(--absent);color:#fff}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats b{display:block;font-size:30px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.dist{display:flex;flex-direction:column;gap:6px}
+.dr{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.dr i{font-style:normal;width:10px;color:var(--muted)}
+.db{height:22px;min-width:26px;width:0;border-radius:6px;background:var(--key);display:flex;align-items:center;justify-content:flex-end;padding:0 8px;font-variant-numeric:tabular-nums;transition:width .8s var(--ease)}
+.db.hl{background:var(--correct);color:#fff}
+.answer{background:var(--soft);border-radius:14px;padding:14px 16px;margin-bottom:4px}
+.answer small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#4f78a8;margin-bottom:6px}
+.answer b{display:block;font-size:19px;letter-spacing:-.01em;margin-bottom:6px}
+.answer p{margin:0;font-size:14px;color:#3a3a3d}
+.foot{display:flex;align-items:center;gap:16px;margin-top:22px}
+.foot>div{flex:1}
+.foot small{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.clock{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.btn{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:13px 22px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.96)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Drawer */
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);
+  transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
+.dh .brand{font-weight:700;font-size:20px;letter-spacing:-.015em}
+.dh small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;letter-spacing:0}
+.item{width:100%;border:0;background:transparent;display:flex;align-items:center;gap:14px;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;text-decoration:none;color:inherit;
+  opacity:0;transform:translateX(-10px);transition:opacity .45s var(--ease),transform .55s var(--ease),background-color .25s var(--ease)}
+.drawer.open .item{opacity:1;transform:none;transition-delay:calc(var(--i) * 45ms + 120ms),calc(var(--i) * 45ms + 120ms),0s}
+.item:hover{background:var(--soft)}
+.item.on{background:var(--soft);font-weight:600}
+.item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.item.on svg{color:var(--ink)}
+.sep{height:1px;background:var(--line);margin:10px 8px}
+.dfoot{margin-top:auto;padding:0 12px;font-size:12px;color:var(--muted)}
+
+@media (max-height:700px){ .key{height:44px} }
+@media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div><button class="ib" id="menuBtn" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button></div>
+      <h1 class="title">Deyim</h1>
+      <div class="right">
+        <button class="ib" data-open="help" aria-label="Nasıl oynanır"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg></button>
+        <button class="ib" data-open="stats" aria-label="İstatistikler"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <main id="main">
+    <div class="sub" id="sub"></div>
+    <span class="cat" id="cat"></span>
+    <div class="board" id="board"></div>
+  </main>
+  <div class="kb" id="kb"></div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
+
+<nav class="drawer" id="drawer" aria-label="Menü">
+  <div class="dh">
+    <div class="brand">Deyim<small>Haber Oyunları</small></div>
+    <button class="ib" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button class="item" style="--i:0" data-mode="daily"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Günün Sözü</button>
+  <button class="item" style="--i:1" data-mode="practice"><svg viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3M18 4l2 3-2 3M18 14l2 3-2 3"/></svg>Pratik Modu</button>
+  <div class="sep"></div>
+  <button class="item" style="--i:2" data-open="help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>Nasıl Oynanır</button>
+  <button class="item" style="--i:3" data-open="stats"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>İstatistikler</button>
+  <div class="sep"></div>
+  <a class="item" style="--i:4" href="index.html"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Tüm Oyunlar</a>
+  <div class="dfoot">Her gün yeni bir söz.</div>
+</nav>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="helpT">Nasıl Oynanır</h2>
+    <p>Gizli <b>atasözünü, deyimi ya da kalıp sözü</b> 6 denemede bulun.</p>
+    <ul>
+      <li>Kelime sayısı ve uzunlukları baştan görünür; boşluklar kendiliğinden atlanır.</li>
+      <li>Her tahmin bütün kutuları doldurmalı.</li>
+    </ul>
+    <h3>Renkler</h3>
+    <div class="ex"><div class="mini c">S</div><div class="mini">O</div><div class="mini">N</div></div>
+    <p><b>Yeşil</b>: harf doğru yerde.</p>
+    <div class="ex"><div class="mini">G</div><div class="mini">Ü</div><div class="mini p">L</div><div class="mini">E</div><div class="mini">N</div></div>
+    <p><b>Sarı</b>: harf <u>aynı kelimede</u> var ama başka yerde.</p>
+    <div class="ex"><div class="mini o">İ</div><div class="mini">Y</div><div class="mini">İ</div></div>
+    <p><b>Mavi</b>: harf sözün <u>başka bir kelimesinde</u> var.</p>
+    <div class="ex"><div class="mini">G</div><div class="mini a">Ü</div><div class="mini">L</div><div class="mini">E</div><div class="mini">R</div></div>
+    <p><b>Gri</b>: harf sözde hiç yok.</p>
+    <div class="hr"></div>
+    <p class="note">Oyun bitince sözün anlamını da görürsünüz. Her gece yarısı yeni bir söz gelir.</p>
+  </div>
+</div>
+
+<div class="modal" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="statsT">İstatistikler</h2>
+    <div id="resultBox"></div>
+    <div class="stats" id="statNums"></div>
+    <h3>Tahmin Dağılımı</h3>
+    <div class="dist" id="dist"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script>
+/* c: tür, p: söz, m: anlamı */
+const PHRASES = [{"c":"Atasözü","p":"damlaya damlaya göl olur","m":"Küçük birikimler zamanla büyük bir şey oluşturur."},
+{"c":"Atasözü","p":"sakla samanı gelir zamanı","m":"Değersiz görünen şeyler bir gün işe yarar."},
+{"c":"Atasözü","p":"acele işe şeytan karışır","m":"Aceleyle yapılan işte hata olur."},
+{"c":"Atasözü","p":"üzüm üzüme baka baka kararır","m":"İnsanlar birbirinden etkilenir."},
+{"c":"Atasözü","p":"ağaç yaş iken eğilir","m":"Eğitim küçük yaşta verilmelidir."},
+{"c":"Atasözü","p":"dost kara günde belli olur","m":"Gerçek dost zor zamanda yanınızdadır."},
+{"c":"Atasözü","p":"işten artmaz dişten artar","m":"Birikim kazançtan çok tutumlulukla olur."},
+{"c":"Atasözü","p":"ateş düştüğü yeri yakar","m":"Acıyı en çok başına gelen hisseder."},
+{"c":"Atasözü","p":"ak akçe kara gün içindir","m":"Para, zor günler için biriktirilir."},
+{"c":"Atasözü","p":"gülü seven dikenine katlanır","m":"Sevilen şeyin zahmetine de katlanılır."},
+{"c":"Atasözü","p":"son gülen iyi güler","m":"Asıl sonucu görmeden sevinmemeli."},
+{"c":"Atasözü","p":"bir elin nesi var iki elin sesi var","m":"Birlikte çalışmak daha güçlüdür."},
+{"c":"Atasözü","p":"az veren candan çok veren maldan","m":"Az veren gönülden verir; değer miktarda değildir."},
+{"c":"Atasözü","p":"taşıma su ile değirmen dönmez","m":"Dışarıdan destekle iş sürdürülemez."},
+{"c":"Atasözü","p":"her işte bir hayır vardır","m":"Kötü görünen olayların da iyi yanı olabilir."},
+{"c":"Atasözü","p":"ayağını yorganına göre uzat","m":"Harcamanı gelirine göre ayarla."},
+{"c":"Atasözü","p":"balık baştan kokar","m":"Bozulma yönetimden başlar."},
+{"c":"Atasözü","p":"gün doğmadan neler doğar","m":"Kısa sürede çok şey değişebilir."},
+{"c":"Atasözü","p":"keskin sirke küpüne zarar","m":"Öfke en çok öfkelenene zarar verir."},
+{"c":"Atasözü","p":"boş çuval dik durmaz","m":"Temeli olmayan şey ayakta kalamaz."},
+{"c":"Atasözü","p":"sabrın sonu selamettir","m":"Sabreden sonunda iyiliğe kavuşur."},
+{"c":"Atasözü","p":"ne ekersen onu biçersin","m":"Yaptığının karşılığını görürsün."},
+{"c":"Atasözü","p":"bugünün işini yarına bırakma","m":"İşleri ertelememek gerekir."},
+{"c":"Atasözü","p":"sütten ağzı yanan yoğurdu üfler","m":"Bir kez zarar gören aşırı temkinli olur."},
+{"c":"Atasözü","p":"her yiğidin bir yoğurt yiyişi vardır","m":"Herkesin bir işi yapma biçimi farklıdır."},
+{"c":"Atasözü","p":"dağ dağa kavuşmaz insan insana kavuşur","m":"İnsanlar bir gün yine karşılaşır."},
+{"c":"Deyim","p":"etekleri zil çalmak","m":"Çok sevinmek."},
+{"c":"Deyim","p":"pireyi deve yapmak","m":"Küçük bir şeyi abartmak."},
+{"c":"Deyim","p":"ağzı kulaklarına varmak","m":"Çok sevinip gülümsemek."},
+{"c":"Deyim","p":"kulak asmamak","m":"Söyleneni önemsememek."},
+{"c":"Deyim","p":"nabzına göre şerbet vermek","m":"Herkese hoşuna gidecek şekilde davranmak."},
+{"c":"Deyim","p":"baltayı taşa vurmak","m":"Farkında olmadan kırıcı bir söz söylemek."},
+{"c":"Deyim","p":"çam devirmek","m":"Yersiz bir söz ya da davranışla mahcup olmak."},
+{"c":"Deyim","p":"ipe un sermek","m":"Bir işi yapmamak için bahane bulmak."},
+{"c":"Deyim","p":"dut yemiş bülbül gibi","m":"Hiç konuşmadan susup durmak."},
+{"c":"Deyim","p":"kılı kırk yarmak","m":"Bir işi en ince ayrıntısına kadar incelemek."},
+{"c":"Deyim","p":"ayvayı yemek","m":"Kötü bir duruma düşmek."},
+{"c":"Deyim","p":"göz boyamak","m":"Gerçeği gizleyip iyi görünmeye çalışmak."},
+{"c":"Deyim","p":"yüreği ağzına gelmek","m":"Çok korkmak."},
+{"c":"Deyim","p":"burnundan kıl aldırmamak","m":"Kimseye boyun eğmemek, çok kibirli olmak."},
+{"c":"Deyim","p":"kervan yolda düzülür","m":"İş yapılırken zamanla yoluna girer."},
+{"c":"Deyim","p":"eli kulağında","m":"Olmak üzere, çok yakında."},
+{"c":"Deyim","p":"dört gözle beklemek","m":"Büyük bir istekle beklemek."},
+{"c":"Deyim","p":"sudan ucuz","m":"Çok ucuz."},
+{"c":"Deyim","p":"tereyağından kıl çeker gibi","m":"Hiç zorlanmadan, kolayca."},
+{"c":"Kalıp söz","p":"geçmiş olsun","m":"Hastalık ya da sıkıntı yaşayana iyi dilek."},
+{"c":"Kalıp söz","p":"kolay gelsin","m":"Çalışan birine iyi dilek."},
+{"c":"Kalıp söz","p":"afiyet olsun","m":"Yemek yiyene iyi dilek."},
+{"c":"Kalıp söz","p":"eline sağlık","m":"Bir iş yapana teşekkür."},
+{"c":"Kalıp söz","p":"hayırlı olsun","m":"Yeni bir başlangıç için iyi dilek."},
+{"c":"Kalıp söz","p":"başınız sağ olsun","m":"Yakınını kaybedene taziye."},
+{"c":"Kalıp söz","p":"gözün aydın","m":"Sevindirici bir haber alana kutlama."}];
+
+const ROWS = 6, LINE = 14;
+const ALPHA = "abcçdefgğhıijklmnoöprsştuüvyz";
+const LAYOUT = ["ertyuıopğü", "asdfghjklşi", "+zcvbnmöç-"];
+const EPOCH = new Date(2026, 0, 1);
+const PRAISE = ["Dahi!", "Muhteşem!", "Harika!", "Çok iyi!", "Güzel!", "Kıl payı!"];
+const ICON_BACK = '<svg viewBox="0 0 24 24"><path d="M9 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-6-6z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>';
+const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+
+const $ = s => document.querySelector(s);
+const up = s => s.toLocaleUpperCase("tr-TR");
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+let stats = store.get("deyim-stats", { played: 0, wins: 0, streak: 0, best: 0, lastWin: null, dist: [0, 0, 0, 0, 0, 0] });
+let mode, day, pid, P, words, letters, wordOf, guesses, cur, over, won, busy = false;
+
+function dayIndex() {
+  const n = new Date();
+  return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
+}
+const dailyPid = d => ((d * 19 + 7) % PHRASES.length + PHRASES.length) % PHRASES.length;
+
+/* ---------- Puanlama ---------- */
+// yeşil: doğru yer · sarı: aynı kelimede · mavi: başka kelimede · gri: yok
+function score(g) {
+  const n = letters.length, res = Array(n).fill("absent");
+  const inWord = words.map(() => ({})), all = {};
+  for (let i = 0; i < n; i++) {
+    if (g[i] === letters[i]) res[i] = "correct";
+    else { const w = wordOf[i]; inWord[w][letters[i]] = (inWord[w][letters[i]] || 0) + 1; all[letters[i]] = (all[letters[i]] || 0) + 1; }
+  }
+  for (let i = 0; i < n; i++) {
+    if (res[i] === "correct") continue;
+    const w = wordOf[i], ch = g[i];
+    if (inWord[w][ch]) { inWord[w][ch]--; all[ch]--; res[i] = "present"; }
+  }
+  for (let i = 0; i < n; i++) {
+    if (res[i] !== "absent") continue;
+    const ch = g[i];
+    if (all[ch] > 0) { all[ch]--; res[i] = "other"; }
+  }
+  return res;
+}
+
+/* ---------- DOM ---------- */
+const board = $("#board"), kb = $("#kb");
+let tiles = [];   // tiles[r][i]
+function layoutLines() {
+  const lines = [[]];
+  let len = 0;
+  words.forEach((w, k) => {
+    const add = (lines.at(-1).length ? 1 : 0) + w.length;
+    if (lines.at(-1).length && len + add > LINE) { lines.push([]); len = 0; }
+    len += (lines.at(-1).length ? 1 : 0) + w.length;
+    lines.at(-1).push(k);
+  });
+  return lines;
+}
+function build() {
+  const lines = layoutLines();
+  const widest = Math.max(...lines.map(l => l.reduce((s, k) => s + words[k].length, 0) + (l.length - 1) * .6));
+  const avail = Math.min(innerWidth, 520) - 36;
+  const t = Math.max(18, Math.min(34, Math.floor(avail / widest - 3)));
+  document.documentElement.style.setProperty("--t", t + "px");
+  board.innerHTML = "";
+  tiles = [];
+  for (let r = 0; r < ROWS; r++) {
+    const g = document.createElement("div");
+    g.className = "guess";
+    const row = [];
+    let idx = 0;
+    const starts = []; let s = 0; words.forEach(w => { starts.push(s); s += w.length; });
+    for (const line of lines) {
+      const ln = document.createElement("div");
+      ln.className = "ln";
+      for (const k of line) {
+        const wd = document.createElement("div");
+        wd.className = "wd";
+        for (let c = 0; c < words[k].length; c++) {
+          const el = document.createElement("div");
+          el.className = "tile";
+          el.innerHTML = "<span></span>";
+          el.style.setProperty("--d", starts[k] + c);
+          wd.appendChild(el);
+          row[starts[k] + c] = el;
+        }
+        ln.appendChild(wd);
+      }
+      g.appendChild(ln);
+    }
+    board.appendChild(g);
+    tiles.push(row);
+  }
+}
+function paint(animRow = -1) {
+  tiles.forEach((row, r) => {
+    const g = guesses[r];
+    const res = g && score(g);
+    board.children[r].classList.toggle("idle", !g && (r !== guesses.length || over));
+    row.forEach((el, i) => {
+      el.className = "tile";
+      delete el.dataset.s;
+      const sp = el.firstChild;
+      if (g) { sp.textContent = up(g[i]); el.dataset.s = res[i]; if (r === animRow) el.classList.add("flip"); }
+      else if (r === guesses.length && !over) { sp.textContent = cur[i] ? up(cur[i]) : ""; if (cur[i]) el.classList.add("typed"); if (i === cur.length) el.classList.add("cur"); }
+      else sp.textContent = "";
+    });
+  });
+}
+function paintInput(i) {
+  const row = tiles[guesses.length];
+  row.forEach((el, k) => {
+    el.firstChild.textContent = cur[k] ? up(cur[k]) : "";
+    el.classList.toggle("typed", !!cur[k]);
+    el.classList.toggle("cur", k === cur.length);
+  });
+}
+
+const keys = {};
+LAYOUT.forEach(line => {
+  const kr = document.createElement("div");
+  kr.className = "kr";
+  for (const ch of line) {
+    const b = document.createElement("button");
+    b.className = "key";
+    b.tabIndex = -1;
+    if (ch === "+") { b.classList.add("wide"); b.textContent = "GİR"; b.dataset.k = "enter"; }
+    else if (ch === "-") { b.classList.add("wide"); b.innerHTML = ICON_BACK; b.dataset.k = "back"; b.setAttribute("aria-label", "Sil"); }
+    else { b.textContent = up(ch); b.dataset.k = ch; keys[ch] = b; }
+    kr.appendChild(b);
+  }
+  kb.appendChild(kr);
+});
+kb.addEventListener("mousedown", e => e.preventDefault());
+kb.addEventListener("click", e => { const b = e.target.closest(".key"); if (b) press(b.dataset.k); });
+function paintKeys() {
+  const rank = { absent: 1, other: 2, present: 3, correct: 4 };
+  const best = {};
+  for (const g of guesses) score(g).forEach((s, i) => { if (!best[g[i]] || rank[s] > rank[best[g[i]]]) best[g[i]] = s; });
+  for (const ch in keys) { if (best[ch]) keys[ch].dataset.s = best[ch]; else delete keys[ch].dataset.s; }
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") return closeAll();
+  if (e.ctrlKey || e.metaKey || e.altKey || isOpen()) return;
+  if (e.key === "Enter") { e.preventDefault(); press("enter"); }
+  else if (e.key === "Backspace") { e.preventDefault(); press("back"); }
+  else if (e.key.length === 1) { const k = e.key.toLocaleLowerCase("tr-TR"); if (ALPHA.includes(k)) press(k); }
+});
+
+/* ---------- Oyun ---------- */
+function press(k) {
+  if (busy || over) return;
+  if (k === "enter") return submit();
+  if (k === "back") { cur = cur.slice(0, -1); return paintInput(); }
+  if (cur.length >= letters.length) return;
+  cur += k;
+  paintInput();
+}
+function shake() {
+  const g = board.children[guesses.length];
+  g.classList.remove("shake"); void g.offsetWidth; g.classList.add("shake");
+}
+async function submit() {
+  if (cur.length < letters.length) { shake(); return toast("Bütün kutuları doldurun"); }
+  if (guesses.includes(cur)) { shake(); return toast("Bunu zaten denediniz"); }
+  const r = guesses.length;
+  guesses.push(cur);
+  cur = "";
+  if (guesses[r] === letters) { over = true; won = true; }
+  else if (guesses.length >= ROWS) { over = true; won = false; }
+  save();
+  busy = true;
+  paint(r);
+  await wait(letters.length * 45 + 520);
+  paintKeys();
+  busy = false;
+  if (won) {
+    board.children[r].classList.add("bounce");
+    toast(PRAISE[r], 1800);
+  } else if (over) toast(up(P.p), 2600);
+  if (over) {
+    if (mode === "daily") record(r);
+    setTimeout(() => { if (!isOpen()) open("stats"); }, won ? 1600 : 2200);
+  } else board.children[guesses.length].scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function start(m, fresh = false) {
+  mode = m;
+  let s;
+  if (m === "daily") {
+    day = dayIndex();
+    pid = dailyPid(day);
+    s = store.get("deyim-daily", null);
+    if (!s || s.day !== day) s = null;
+  } else {
+    s = fresh ? null : store.get("deyim-practice", null);
+    if (s && !PHRASES[s.pid]) s = null;
+    if (s) pid = s.pid;
+    else {
+      let p;
+      do p = Math.floor(Math.random() * PHRASES.length); while (p === pid || p === dailyPid(dayIndex()));
+      pid = p;
+    }
+  }
+  P = PHRASES[pid];
+  words = P.p.split(" ");
+  letters = words.join("");
+  wordOf = words.flatMap((w, k) => [...w].map(() => k));
+  guesses = s ? s.guesses : [];
+  cur = ""; busy = false;
+  won = guesses.includes(letters);
+  over = won || guesses.length >= ROWS;
+  save();
+  build();
+  paint();
+  paintKeys();
+  renderSub();
+  $("#cat").textContent = `${P.c} · ${words.length} kelime`;
+  document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+}
+function save() {
+  if (mode === "daily") store.set("deyim-daily", { day, guesses });
+  else store.set("deyim-practice", { pid, guesses });
+}
+function renderSub() {
+  const sub = $("#sub");
+  if (mode === "daily") {
+    const date = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+    sub.innerHTML = `<span>${date}</span><span class="dot"></span><span>#${day + 1}</span>`;
+  } else {
+    sub.innerHTML = `<span>Pratik modu</span><button class="chip" id="newPz">Yeni söz</button>`;
+    $("#newPz").onclick = () => { if (!busy) start("practice", true); };
+  }
+}
+
+/* ---------- İstatistik ---------- */
+function record(r) {
+  stats.played++;
+  if (won) {
+    stats.wins++;
+    stats.dist[r]++;
+    stats.streak = stats.lastWin === day - 1 ? stats.streak + 1 : 1;
+    stats.best = Math.max(stats.best, stats.streak);
+    stats.lastWin = day;
+  } else stats.streak = 0;
+  store.set("deyim-stats", stats);
+}
+function renderStats() {
+  const today = dayIndex();
+  const streak = stats.lastWin !== null && stats.lastWin >= today - 1 ? stats.streak : 0;
+  const pct = stats.played ? Math.round(stats.wins / stats.played * 100) : 0;
+  $("#resultBox").innerHTML = over
+    ? `<div class="answer"><small>${P.c}</small><b>${up(P.p.slice(0, 1)) + P.p.slice(1)}</b><p>${P.m}</p></div><h3>Genel</h3>`
+    : "";
+  $("#statNums").innerHTML = [[stats.played, "Oynanan"], [pct, "Kazanma %"], [streak, "Güncel Seri"], [stats.best, "En İyi Seri"]]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+  const max = Math.max(1, ...stats.dist);
+  const hl = mode === "daily" && won ? guesses.length - 1 : -1;
+  $("#dist").innerHTML = stats.dist.map((n, i) =>
+    `<div class="dr"><i>${i + 1}</i><div class="db${i === hl ? " hl" : ""}" data-w="${Math.max(7, n / max * 100)}">${n}</div></div>`).join("");
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    document.querySelectorAll(".db").forEach((b, i) => { b.style.transitionDelay = i * 50 + "ms"; b.style.width = b.dataset.w + "%"; })));
+  const foot = $("#foot");
+  if (!over) { foot.innerHTML = ""; return; }
+  if (mode === "daily") {
+    foot.innerHTML = `<div><small>Sonraki söz</small><div class="clock" id="clock"></div></div><button class="btn" id="shareBtn">${ICON_SHARE}Paylaş</button>`;
+    $("#shareBtn").onclick = share;
+    tick();
+  } else {
+    foot.innerHTML = `<div></div><button class="btn" id="againBtn">Yeni söz</button>`;
+    $("#againBtn").onclick = () => { closeAll(); setTimeout(() => start("practice", true), 250); };
+  }
+}
+function tick() {
+  const el = $("#clock");
+  if (el) {
+    const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+    const s = Math.max(0, Math.floor((next - n) / 1000));
+    el.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":");
+  }
+  if (mode === "daily" && !busy && dayIndex() !== day) start("daily");
+}
+setInterval(tick, 1000);
+async function share() {
+  const sq = { correct: "🟩", present: "🟨", other: "🟦", absent: "⬜" };
+  const grid = guesses.map(g => {
+    const res = score(g);
+    let i = 0;
+    return words.map(w => w.split("").map(() => sq[res[i++]]).join("")).join(" ");
+  }).join("\n");
+  const text = `Deyim #${day + 1} ${won ? guesses.length : "X"}/${ROWS}\n\n${grid}`;
+  if (navigator.share && matchMedia("(pointer:coarse)").matches) {
+    try { await navigator.share({ text }); return; } catch {}
+  }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); }
+  catch { toast("Kopyalanamadı"); }
+}
+
+/* ---------- Toasts ---------- */
+function toast(msg, ms = 1400) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+
+/* ---------- Overlays ---------- */
+const scrim = $("#scrim"), drawer = $("#drawer");
+function isOpen() { return scrim.classList.contains("open"); }
+function closeAll() {
+  scrim.classList.remove("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  document.activeElement && document.activeElement.blur();
+}
+function open(id) {
+  const wasDrawer = drawer.classList.contains("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  if (id === "stats") renderStats();
+  scrim.classList.add("open");
+  setTimeout(() => $("#" + id).classList.add("open"), wasDrawer ? 180 : 0);
+}
+$("#menuBtn").onclick = () => { scrim.classList.add("open"); drawer.classList.add("open"); };
+scrim.onclick = closeAll;
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeAll(); }));
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"), c = e.target.closest("[data-close]"), md = e.target.closest("[data-mode]");
+  if (o) open(o.dataset.open);
+  else if (c) closeAll();
+  else if (md) { closeAll(); if (md.dataset.mode !== mode) setTimeout(() => start(md.dataset.mode), 200); }
+});
+addEventListener("resize", () => { if (!busy) { build(); paint(); } });
+
+/* ---------- Boot ---------- */
+start("daily");
+if (!store.get("deyim-seen", false)) { store.set("deyim-seen", true); setTimeout(() => open("help"), 400); }
+</script>
+</body>
+</html>

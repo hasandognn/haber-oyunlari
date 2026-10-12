@@ -611,7 +611,7 @@ $("#swCb").onclick = () => {
 
 /* ---------- Boot ---------- */
 document.body.classList.toggle("cb", settings.cb);
-start("daily");
+start(new URLSearchParams(location.search).get("mod") === "sinirsiz" ? "practice" : "daily");
 if (!store.get("kelime-seen", false)) { store.set("kelime-seen", true); setTimeout(() => open("help"), 400); }
 </script>
 </body>

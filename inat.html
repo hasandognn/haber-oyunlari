@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>İnat — Kelimesini Değiştiren Bulmaca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#f1f1ef; --key-hover:#e8e8e5; --soft:#f7f7f5;
+  --correct:#6aa780; --present:#d8b257; --absent:#9da1a6;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --gap:6px;
+  --tile:min(56px, calc((100vw - 56px) / 5 - 6px));
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  -webkit-tap-highlight-color:transparent;overflow:hidden;
+}
+button{font:inherit;color:inherit}
+.app{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+/* Header */
+header{flex:none;border-bottom:1px solid var(--line)}
+.bar{max-width:520px;margin:0 auto;height:60px;padding:0 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bar .right{display:flex;justify-content:flex-end;gap:2px}
+.title{font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;line-height:1}
+.ib{width:40px;height:40px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:background-color .25s var(--ease),transform .15s var(--ease)}
+.ib:hover{background:var(--soft)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* Main */
+main{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0 6px}
+.status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;background:var(--soft);padding:6px 12px;font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--present)}
+.pill.one i{background:var(--correct)}
+.pill.bump{animation:bump .45s var(--ease)}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background-color .25s var(--ease),border-color .25s}
+.chip:hover{background:var(--soft);border-color:var(--line-strong)}
+.scroll{flex:1;min-height:0;width:100%;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:6px 0 10px;scroll-behavior:smooth}
+.board{display:flex;flex-direction:column;gap:var(--gap);margin:auto 0}
+.row{display:grid;grid-template-columns:repeat(5,var(--tile));gap:var(--gap)}
+.row.shake{animation:shake .5s var(--ease)}
+.row.in{animation:rowIn .35s var(--ease)}
+.tile{position:relative;height:var(--tile);perspective:700px}
+.tile .in{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .62s var(--ease)}
+.face{position:absolute;inset:0;display:grid;place-items:center;border-radius:8px;backface-visibility:hidden;-webkit-backface-visibility:hidden;font-weight:700;font-size:calc(var(--tile) * .48);line-height:1}
+.front{background:#fff;border:1.5px solid var(--line);transition:border-color .2s var(--ease)}
+.tile.filled .front{border-color:var(--line-strong)}
+.tile.filled .front span{animation:ink .22s var(--ease)}
+.tile.pop{animation:pop .16s var(--ease)}
+.back{transform:rotateX(180deg);color:#fff}
+.tile[data-s=correct] .back{background:var(--correct)}
+.tile[data-s=present] .back{background:var(--present)}
+.tile[data-s=absent] .back{background:var(--absent)}
+.tile.flip .in{transform:rotateX(180deg)}
+.tile.bounce{animation:bounce .9s var(--ease) both}
+.instant .tile .in{transition:none!important}
+
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.07)}100%{transform:scale(1)}}
+@keyframes ink{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}30%{transform:translateY(-22%)}55%{transform:translateY(3%)}75%{transform:translateY(-6%)}}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes bump{40%{transform:scale(1.1)}}
+
+/* Keyboard */
+.kb{flex:none;width:100%;max-width:520px;margin:0 auto;padding:6px 8px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;user-select:none;-webkit-user-select:none}
+.kr{display:flex;gap:5px;justify-content:center}
+.key{flex:1;max-width:44px;height:54px;border:0;border-radius:9px;background:var(--key);font-weight:600;font-size:15px;display:grid;place-items:center;cursor:pointer;padding:0;touch-action:manipulation;
+  transition:background-color .4s var(--ease),color .4s var(--ease),transform .12s var(--ease)}
+.key:hover{background:var(--key-hover)}
+.key:active{transform:scale(.93)}
+.key.wide{flex:1.6;max-width:70px;font-size:12px;letter-spacing:.03em}
+.key svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.key[data-s]{color:#fff}
+.key[data-s=correct]{background:var(--correct)}
+.key[data-s=present]{background:var(--present)}
+.key[data-s=absent]{background:var(--absent)}
+
+/* Toasts */
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s var(--ease),transform .35s var(--ease);white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-6px) scale(.97)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+
+/* Overlays */
+.scrim{position:fixed;inset:0;background:rgba(250,250,248,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:20px;z-index:50;pointer-events:none}
+.card{width:100%;max-width:410px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(20,20,20,.12),0 2px 8px rgba(20,20,20,.04);padding:26px 26px 24px;position:relative;
+  opacity:0;transform:translateY(14px) scale(.975);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.modal.open{pointer-events:auto}
+.modal.open .card{opacity:1;transform:none}
+.card h2{font-weight:700;font-size:21px;margin:0 0 14px;letter-spacing:-.015em}
+.card h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px}
+.card p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#3a3a3d}
+.card ul{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.6;color:#3a3a3d}
+.close{position:absolute;top:14px;right:14px}
+.hr{height:1px;background:var(--line);margin:18px 0}
+.note{font-size:13px!important;color:var(--muted)!important}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats b{display:block;font-size:30px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.result{text-align:center;margin-bottom:6px}
+.result .big{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.result p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.trail{display:flex;flex-direction:column;gap:6px}
+.trail div{display:flex;justify-content:space-between;font-size:14px;padding:7px 2px;border-bottom:1px solid var(--line)}
+.trail div:last-child{border-bottom:0}
+.trail b{letter-spacing:.06em}
+.trail span{color:var(--muted);font-variant-numeric:tabular-nums}
+.foot{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:22px}
+.btn{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:13px 22px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.96)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+
+/* Drawer */
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);
+  transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
+.dh .brand{font-weight:700;font-size:20px;letter-spacing:-.015em}
+.dh small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;letter-spacing:0}
+.item{width:100%;border:0;background:transparent;display:flex;align-items:center;gap:14px;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;
+  opacity:0;transform:translateX(-10px);transition:opacity .45s var(--ease),transform .55s var(--ease),background-color .25s var(--ease)}
+.drawer.open .item{opacity:1;transform:none;transition-delay:calc(var(--i) * 45ms + 120ms),calc(var(--i) * 45ms + 120ms),0s}
+.item:hover{background:var(--soft)}
+.item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.sep{height:1px;background:var(--line);margin:10px 8px}
+.dfoot{margin-top:auto;padding:0 12px;font-size:12px;color:var(--muted)}
+
+@media (max-height:680px){ .key{height:46px} }
+@media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div><button class="ib" id="menuBtn" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button></div>
+      <h1 class="title">İnat</h1>
+      <div class="right">
+        <button class="ib" data-open="help" aria-label="Nasıl oynanır"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg></button>
+        <button class="ib" data-open="stats" aria-label="İstatistikler"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="status"><span class="pill" id="pill"><i></i><span id="left"></span></span><button class="chip" id="newBtn">Yeni oyun</button></div>
+    <div class="scroll" id="scroll"><div class="board" id="board"></div></div>
+  </main>
+  <div class="kb" id="kb"></div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
+
+<nav class="drawer" id="drawer" aria-label="Menü">
+  <div class="dh">
+    <div class="brand">İnat<small>Haber Oyunları</small></div>
+    <button class="ib" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button class="item" style="--i:0" id="drawerNew"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg>Yeni Oyun</button>
+  <div class="sep"></div>
+  <button class="item" style="--i:1" data-open="help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>Nasıl Oynanır</button>
+  <button class="item" style="--i:2" data-open="stats"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>İstatistikler</button>
+  <div class="sep"></div>
+  <a class="item" style="--i:3;text-decoration:none;color:inherit" href="index.html"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Tüm Oyunlar</a>
+  <div class="dfoot">Gizli kelime sizden kaçıyor.</div>
+</nav>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="helpT">Nasıl Oynanır</h2>
+    <p>Kelime oyunu gibi, ama bir farkla: <b>gizli kelime henüz seçilmedi.</b></p>
+    <ul>
+      <li>Her tahmininizden sonra oyun, size <b>en az ipucu veren</b> cevabı seçer ve gizli kelimeyi sürekli değiştirir.</li>
+      <li>Kalan olası kelime sayısını üstte görebilirsiniz. Tek kelime kalınca artık kaçamaz.</li>
+      <li>Tahmin hakkınız sınırsız. Amaç, kelimeyi olabildiğince <b>az tahminde</b> köşeye sıkıştırmak.</li>
+    </ul>
+    <h3>Renkler</h3>
+    <p><b style="color:var(--correct)">Yeşil</b> doğru yer, <b style="color:var(--present)">sarı</b> başka yerde var, <b style="color:var(--absent)">gri</b> kelimede yok — tıpkı Kelime'deki gibi.</p>
+    <div class="hr"></div>
+    <p class="note">İpucu: oyun her zaman en kalabalık cevap grubunu seçer. Harfleri bölen, dengeli tahminler yapın.</p>
+  </div>
+</div>
+
+<div class="modal" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="statsT">İstatistikler</h2>
+    <div id="resultBox"></div>
+    <div class="stats" id="statNums"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script>
+/* POOL: gizli kelimenin olabileceği sık kelimeler, VALID: tahmin olarak kabul edilenler (Kelime oyunuyla aynı sözlük) */
+const WORDS = {"pool": "acaba acele acemi acılı acıma adama adres afyon ahbap ahlak ahşap akrep aktif aktör akşam alarm albay albüm alkol alkış allah almak altın alıcı amber amigo ampul ancak anlam anlık anons antik araba aracı arama arazi armut artık artış arıza asker aslan asmak astım asılı atmak avans aylak aylık aynen ayyaş azgın açlık açmak aşama aşağı aşina aşkın aşmak aşırı bacak bagaj bahar bahis bahçe bakan bakir bakma bakım bakır bakış balon balta balık banka banyo barda bariz baron barut barış basit baskı bastı basın batıl bavul bayan bayat bazen bağlı bağır bağış başka başta bebek bedel beden bekar bekçi beleş belge belki belli bence bende besin beter beton beyan beyaz beyin biber bilek bilet bilge bilgi bilim bindi biraz birer birey birim bitiş bitki bizde biçim bolca borsa boylu boyun boyut bozma bozuk boğaz bravo bronz bugün buhar bulma bulut buluş bunak bunca bunda burun buzlu buzul buçuk böcek bölge bölük bölüm börek böyle bütçe bütün büyük bıyık bıçak cadde cahil canlı casus cazip ceket cephe cesur cevap ceviz ciddi cihaz cimri ciğer cümle cüret dahil daima daire dalga dalış damar damat damla davet davul dayak dekan delik delil delta demek demin demir denek deney denge deniz denli dergi derin desen detay devam devir devre deyim değer değil değin değiş diken dikiş dilek dilim direk disko diyet diğer dişli dişçi dokuz dolap dolar dosya doğal doğan doğru doğum drama duble dudak duman durak durma durum duvar duyar duygu duyma dönem döner döngü dönme dönük dönüm dönüş dövme dövüş dümen dünkü dünya düzen düzey düğme düğüm düğün düşme düşük düşün düşüş ejder ekmek ekran eksik elbet elmas emici emlak ender enfes engel engin enkaz ergen erkek erken erzak esmer esnek espri etkin etmek etmen etraf evcil evlat evrak evren evrim evsiz evvel eylem eylül eşlik eşsiz fakat fakir fayda fazla fener fidan fidye fikir filan filiz final firar firma fiyat fizik fişek flora flört frank fırça fırın galip garaj garip gayet gayri gazoz gelen gelin gelir geliş gelme genel geniş gerek gerçi geyik geçen geçer geçit geçiş geçme gidiş girdi giren giriş girme gitar gitme giyim giyme giysi gizem gizli goril gurur göbek gölge gönül görev görgü görme görüş gövde gözcü gözde gözlü göğüs gübre gücün gülme gümüş günah günde güney güneş güreş güven güzel güçlü gıcık haber hafif hafta haham hakem hakim haklı halat halim halka hamam hamle hamur hangi hanım hapis harap harbi hariç hasar hasat hasta hatta hatun havai havlu havuz havuç hayal hayat haydi hayli hayır hazır hedef helal helva hemen henüz hepsi herif hesap hindi hippi hisse hitap hokey horoz hukuk hurda huzur hücre hüküm hıyar hızlı iblis idare iddia ideal idrak idrar ifade iflas ihbar ihlal ihmal ikili iklim ikram ilahi ilave ileri ilham ilkel imdat inanç incir infaz inmek insan iplik iptal ipucu ispat istek isyan itaat itham itici iyice içeri içmek işgal işlem işsiz joker kabak kabin kablo kabuk kabul kadar kadeh kader kadim kadın kafes kahpe kahve kalem kalma kalça kalın kalıp kanal kanat kanca kanun kanıt kapak kaplı karar karga kargo karlı karma karın karşı kasap kaset kaslı kasım katkı katlı katır kavak kavga kavun kayak kayıp kayıt kazak kazan kazık kaçar kaçma kaçta kaçık kaçış kağıt kaşık keder kefil kelle keman kemer kemik kenar kendi kesen keser kesik kesim kesin kesme keyif keşif keşiş keşke kibar kilit kimse kimya kiraz kirli kitap kitle klişe kobra kolay kolej kolye komik komşu konuk konum konuş kopya korku kovan koyma koyun koşun kramp kredi krema kubbe kucak kuduz kukla kulak kulüp kumaş kural kurgu kurma kurul kurum kuruş kurye kusur kutlu kutup kuzen kuzey kuşak kuşku köfte kömür köpek köprü köpük köylü kürek kütle kütük küçük kıllı kılık kılıç kırma kırık kısma kısmi kısım kıyak kızma kızıl kışın lakin lamba layık lazer lazım leziz lider likör liman limon liste litre lokma lokum lütuf madam madde maddi maden mafya makas makul malik malum marka marul maruz masaj masal maske mason masum mayın mayıs mazur medya mekik melek melez memur merak mermi mesai mesaj metal metin metre metro mevzu meyve mezun meğer meşru mikro milli mimar minik miras mizah model modem monte moral moruk motel motor mutlu mösyö müdür mühim mühür müzik mısır nabız nadir nahoş nakil nakit narin nasıl nazik neden nefes nefis nehir nemli nesil nesne neyse nezle nihai nisan niyet nişan nokta nutuk nöbet nüfus okuma olası olgun olmak olmaz olmuş omlet ondan onlar onsuz opera orası organ orman ortak ortam oğlan paket pamuk panda panik papaz papel parka parti parça pasif pasta paten pazar peder pembe penis pençe perde peruk peşin pilav piliç pilot pizza plaka plaza poker polis porno porto posta poşet prens proje prova radar radyo rahat rakam rakip rakun rapor rehin rekor resim rezil reşit ritim robot roket roman rozet ruhlu rutin sabah sabit sabun sabır sadık sahil sahip sahne sahte sakal sakat sakin saklı sakın sakız salim salon saman sanal sanat sanki sanma sanık sapan saray sarpa satın satır satış savaş savcı sayfa saygı sayım sayın saçlı saçma sağır seans sebep sebze sefer sefil sehpa sekiz selam sence sergi serin serum serçe sesli sever sevgi seyir sezon seçim sihir silgi simit sinek sinir sinsi siper sirke sivil sivri siyah sizce sizde sokak sokma soluk somon somut sonra sonuç sorgu sorma sorun sosis soylu soğan soğuk sperm sprey stres subay sudan sunum surat susuz suçlu sözde sözlü söğüt süper süreç sürme sürüş süslü sütlü sıcak sıfır sıkça sınav sınıf sınır sıçan sığır tabak tabii tabip tablo tabut taciz tahta tahıl takas takip takma taksi takım talep talih tamam tamir tango tanık tanış taraf tarak tarif tarih tarla tarım tatil tatlı tavan tavuk tavır tayin teker tekme tekne telaş temas temel temin temiz tenis teori tepki terfi tesis testi teyit teyze tilki tipik titan titiz tohum tokat tokyo topla toplu topuk topçu torba torun tuhaf turta turşu tutar tutku tutma tuval tuzak tuzlu tuğla tören tövbe tünel türlü tütün tüylü tıbbi tıpkı tıraş ucube ukala utanç uyarı uygun uymak uzman uçmak uğraş vagon vakit varış vatan vefat vekil velet verdi vergi verme video villa virüs viski vites vurma vuruş vücut yaban yahut yakma yakut yakın yakıt yalan yanık yanıt yapay yapma yapım yapış yarar yargı yarım yarın yarış yasak yasal yatak yatır yavaş yaver yavru yayın yazar yazma yazık yazım yazın yağlı yaşam yedek yelek yemek yemin yemiş yenge yenik yerel yerli yeter yetki yeşil yirmi yoksa yolcu yorma yorum yosun yoğun yudum yulaf yunus yönlü yüklü yürek yüzde yüzey yüzme yüzük yıkım yılan yığın zafer zalim zaman zanlı zarar zarif zaten zayıf zebra zehir zemin zerre zihin ziyan zorba zorla zorlu zurna züppe çabuk çadır çakal çalar çalma çalış çamur çanta çaplı çatal çavuş çağrı çeker çekim çekiç çekme çelik çetin çevre çeşit çifte çilek çizgi çizik çizim çiçek çoban çocuk çoklu çorap çorba çubuk çukur çuval çörek çözüm çünkü çürük çıkan çıkar çıkma çıktı çıkın çıkış çınar ödeme ödlek ödünç ölmek ölmez öneri önlem öpmek ördek örgüt örnek öteki ötürü özgün özgür öğlen ücret ünite üreme üstat üstün üzere üzeri üzgün üzücü ırmak ıslak ıslık ısrar ıssız şafak şahin şahit şahsi şahıs şapka şarap şarkı şehir şeker şekil şeref şerif şifre şilin şimdi şirin şoför şubat şöyle şükür şüphe", "valid": "abacı abadi abalı abana abani abaza abaşo abbas abdal abece abhaz abide abiye ablak abone abosa abraş abril abuli acaba acara acele acemi aceze acibe acube acuze acıca acılı acıma adale adalı adama adana adedi adese adeta adres adsal adsız adına afaki afazi afgan afife afili afişe afoni afsun aftos afyon afşar afşin agami agora agraf ahali ahbap ahcar ahenk ahfat ahfeş ahize ahkam ahlaf ahlak ahlat ahmak ahraz ahval ahşap aidat ajans ajite akabe akait akaju akala akbaş akdut akemi akide akkor akkuş akköy aklan aklen aklık akmak akman akmaz akont akort akpas akran akrep aksak aksam aksan akson aktar aktaş aktif aktör akvam akçıl akıcı akşam akşın alaca alaka alarm alaza albay albüm aleni alevi aleyh algın alize alkan alkil alkol alkım alkış allah allak allem allık almak alman almaç almaş almus alnaç altay altes altlı altık altın altız alyan alyon alçak alıcı amade ambar amber amele ameli amigo amorf amper ampir ampul amudi anaca analı anane ancak andaç andık andız andıç anele anemi angut angın angıç anide anime anjin anket anlak anlam anlık anmak anons ansız anten antet antik antlı antre anyon anzak anüri apacı apiko aplik aport apotr apoşi april apsis aptal araba arabi aracı araka aralı arama arami arazi ardak ardıl ardıç arena argaç argon argın argıt arife ariya ariza arkaç arkoz arkıt armut armuz aroma arpej arpçı arsin arsız arter artma artçı artık artım artın artış arıcı arıza arızi arşiv arşın asabi ashap aside asist askat asker asklı aslan aslen aslık asmak aspur astar astat astik astım asude asyön asılı atama atari ataşe atfen atlas atlet atmak atmık atıcı atılı avane avans avara avare avaze avdet avene avize avlak avrat avret avunç avurt avşar aydın ayevi aygın aygır aygıt aylak aylık aymak aymaz aynaz aynen ayran ayraç ayrık ayrım ayrıt ayrıç aysar aysız ayvan ayvaz ayyar ayyaş ayyuk ayıcı ayırt azade azami azeri azgın azize azlık azmak azman aznif azoik azvay azılı açgöz açlık açmak açmaz açval açıcı ağcık ağlak ağmak ağnam ağraz ağyar ağılı aşama aşari aşağı aşevi aşina aşkın aşlık aşmak aşure aşıcı aşılı aşırı babai babaç bacak badal badas badat badem badik badya badıç bafra bagaj baget bahai bahar bahir bahis bahri bahçe bakam bakan bakaç bakir bakla bakma bakım bakır bakış balar balat balcı baldo balet baliğ balkı ballı balon baloz balta balya balık bambu bamya banak banal banaz bando banjo banka banko banma banyo banço baraj barak baran barba barcı barda bardo barem baret barit bariz barka barok baron barut barça barış basak basar basen basil basit baskı basma basso bastı basur basya basık basım basın basış batak batar batik batkı batma baton batur batöz batık batıl batın batış bavcı bavlı bavul bayan bayat bayma bayrı bayır bazal bazen bazik bazit baççı bağan bağcı bağda bağlı bağıl bağım bağın bağır bağıt bağış başak başat başka başlı başta başçı bebek becet bedel beden bedii bedik bedir bedük begüm beher behey behre bekar bekas bekri bekçi belce belde belek belen beleş belge belgi belik belit beliğ belki belli bemol bence benci bende benek bengi beniz benli berat beril berri besin besni beste beter betik betim beton beyan beyaz beyin beyit beyzi bezci bezek bezen bezgi bezik bezir beziş bezme bezsi beşer beşik beşiz beşli beşme beşon beşuş biber biblo bicik bidar bidat bidon bihuş bikes bikir bilar bilek bilet bilge bilgi bilim bilir biliş bilme bilye bindi binek biner bingi binit biniş binme biraz birci birer birey birim birli birun bitap bitek bitey bitik bitim bitiş bitki bitli bitme bitüm biyel bizar bizce bizde bizon biçem biçim biçiş biçki biçme bişek bloke bobin bocce bocuk bodur boduç bohem bohça boklu bolca bomba bombe borak boran borat borda bordo borik borsa boruk bosna boyar boyca boylu boyna boyoz boyun boyut bozca bozma bozuk bozum bozuş boğak boğaz boğma boğuk boğum branş bravo bronz bronş bröve bucak budak budun bugün buhar buhur buket bukle bulak bulgu bulma bulut buluş bunak bunca bunda bunlu bunma burak burcu burgu burma bursa buruk burun butik butlu buton buyma buyot buzcu buzla buzlu buzul buçuk buğra buğur buğuz buşon böbür böcek bölen bölge bölme bölük bölüm bölüt bölüş bönce börek böyle böğür bücür büken bükme bükük büküm bükün büküç büküş büluğ bünye bürgü bürük bürüm bürün bütan büten bütey bütçe bütün büvet büyük büzgü büzme büzük büğet büğlü bıcıl bıdık bıkma bıkış bıyık bızır bıçak bıçkı bıçık cacık cadde cahil caize calip camcı camia camit camlı camsı camız canan canik canip canlı carlı carta casus cayma cayış cazcı cazip cazlı cebel cebin cebir cebri cedel cedit cedre cehil cehre cehri ceket celal celbe celep celil celse cemal ceman cemil cemre cenah cenap cenin cenup cephe cepçi ceren ceset cesim cesur cevap cevaz cevir ceviz cevvi cevza cezai cezbe cezir cezri cezve cibin cibre cicik cicim cicoz cidal cidar ciddi cihan cihar cihat cihaz cihet cilve cimri cinai cinas cinci cinli cinsi cirim cirit cisim civan civar cizre cizye ciğer conta corum coşku coşma coşum coşuş cudam cukka cumba cunda cunta cuşiş cübbe cücük cülus cümle cünha cünun cünüp cüret cüruf cürüm cüsse cıbıl cıcık cıdak cılız cıvma cıvık cızık daday dadaş dahil daima daimi daire dakik dalak dalan dalaş dalga dalgı dallı dalma dalsı dalya dalız dalış damak damal damar damat damga damla damlı danca danış daraç daraş darbe darca dasit datif datça davar davet davul davya dayak dağar dağcı dağlı debbe debil defin defne degaj deist deizm dekan dekar dekor delgi delik delil delme delta demci demek demet demeç demin demir demli demre denek denet deney denge denim deniz denli denme denyo depar derbi dergi derik derin derme derun derya desen deste detay devam devce devim devir devre devri deyim deyiş değer değeç değil değim değin değiş değme deşik deşme dibek dicle didar didim didon digor dikel diken dikey dikeç dikim dikit dikiz dikiş dikme dikse dikta dikte dikçe dilce dilci dilek dilim diliş dilli dilme dilsi dimağ dinar dince dinci dinek dinen dingi dingo diniş dinli dinme dipli direk diren direy diril dirim diriğ disko ditme dival divan divik divit diyar diyet diyez diyot dizek dizel dizem dizey dizge dizgi dizim dizin diziş dizme diğer dişil dişli dişçi dobra dogma dokuz dolak dolam dolap dolar dolay dolgu dolma dolum doluş domur domuz donam donlu donma donra donuk donör dorse doruk dorum dosya doygu doyma doyum doyuş dozaj dozer doğal doğan doğaç doğma doğru doğum doğuş draje drama duacı dualı dubar duble dudak duhul dulda duluk duman dumur durak dural duraç durgu durma duruk durum duruş dutçu duvak duvar duyar duygu duyma duyum duyuş duşak duşlu döger dökme dökük döküm döküş dölek dölüt dönek dönel dönem döner döneç döngü dönme dönük dönüm dönüt dönüş döper döveç döviz dövme dövüş döşek döşem döşlü dübel dübeş düden düdük dügah dümen dünit dünkü dünya dünür dürme dürtü dürzi dürzü dürüm düvel düven düver düyek düyun düzce düzem düzen düzey düzeç düzgü düzme düçar düğme düğüm düğün düşes düşey düşeş düşkü düşme düşçü düşük düşün düşüt düşüş dılak dığan dışkı dışık ebcet ebedi ebeli ebleh ecdat edalı edebi edinç edvar efdal efece efekt efkar eflak efrat efriz efsun efsus egale eglog egzoz ehram ehven ejder ekici ekili eklem ekler ekmek ekose ekran eksen ekser eksik eksin eksiz eküri elbet elcik elden eleji eleme elgin elhak elifi elips ellik elmas elmek elvan elyaf elzem elçek elçim emare emaye emcek emcik emici emlak emlik emmek emmeç emraz emsal emtia emval emzik enayi encam endam ender eneme eneze enfes engel engin enkaz enlem ensar enser ensiz entel enzim enöte eosen epeyi epope epsem erbaa erbap erbaş erbin ercik erciş erdek erdem erden ergen ergin erika erime erinç erkan erkek erken erkeç erkin erkli erlik ermek ermin ermiş eroin ersiz ervah erzak erzel erzin esame esami esans esasi esbak esbap eseme esham esire eskil eskiz eslaf eslek esmek esmer esnaf esnek espas espri esrar esrik essah ester estet esvap etene etfal etken etkin etlik etmek etmen etnik etraf etsel etsiz etçik etçil evaze evcek evcik evcil evdeş evgin evham eviye evkaf evlat evlek evlik evrak evrat evren evrik evrim evsaf evsel evsin evsiz evvel eylem eylül eytam eyvah eyvan eyyam ezani ezber ezeli ezgin ezgiç ezici ezine ezinç ezmek eçhel eğlek eğmek eğmeç eğmür eğrez eğrim eşarp eşhas eşkal eşkin eşlek eşlem eşlik eşmek eşraf eşref eşsiz facia fagot fahiş fahri fahte fahur fakat fakih fakir fakül falan falcı falez falso falya fanta fanti fanus fanya farad faraş farba faril fariğ faset fasih fasit faska faslı fason fasık fasıl fatih fatsa fauna fayda fazla fazıl fecir fedai fehim fehva fekül felah felek fenci fener fenik fenni fenol ferah ferağ ferda ferde ferdi ferih ferik ferli ferma fesat fesih fetha fetih fetiş fetva fetüs fevri feyiz fiber fidan fidye fifre figan figür fiili fikir fikri filan filar filet filiz filoz filsi filum final fince finiş firak firar firez firik firma fiske fisto fitil fitin fitne fitre fitçi fiyat fizik fişek fişka fişli flama fleol flora flori flöre flört fodla fodra fodul fokus folyo fonda fondü fonem forma foroz forsa forte forum fosil frank frape frenk fresk freze frigo frisa fuaye fuhuş fujer fular fulya funda furya fülüs fünye füsun fütur füzen fıkra fıkıh fırka fırça fırın fıtri fıtık fışkı gabin gabon gabro gabya gadir gafil gafur gaile gaita galat galip galiz galon galop galoş gamba gamet gamlı gamze garaj garaz garbi garip garoz gasil gasıp gauss gavot gavur gayda gayet gayri gayrı gayur gayya gazal gazap gazel gazlı gazoz gazve gaşiy gebeş gebre gebze gedik gediz gedme gelen gelin gelir geliş gelme gemre genel geniz geniş genom geoit gerek geren gereç gergi gerim geriz geriş germe gerze gerçi getto gevaş geven geviş gevme geyik geyve geyşa geziş gezme geçek geçen geçer geçim geçit geçiş geçme geççe gider gidiş gidon giray girdi giren girim girit giriş girme gitar gitme giyim giyit giyiş giyme giysi gizem gizil gizli glase gnays gocuk godoş golcü gollü gonca goril gotik gotça grado grena grizu grogi grosa guano guatr gudde guguk gulaş gulet gurme gurup gurur gusto gusül göbek göbel göbüt göcen göden gödeş gökçe gölek gölet gölge gölük gömeç gömme gömük gömüt gömüş göncü gönen gönye gönül görev görgü görme görüm görüş gövde gövek gövel gövem göyme göyük gözcü gözde gözer gözgü gözlü göçer göçme göçük göçüm göçüş göğem göğüs gübre gübür gücük gücün güdek güdük güdül güdüm güfte gülcü güleç gülle güllü gülme gülük gülüt gülüş gümeç gümül gümüş günah günce günde güney güneç güneş günlü güpür gürcü güreş gürsu güruh gürün gütme güven güvez güveç güzaf güzel güzey güzün güçlü güğüm gıcık gıcır gıdık gıdım gıpta gırla gıyap habbe haber habeş habip habis hacet hacim hacir haciz hadde hadim hadis hadım hafif hafik hafit hafta hafız haham hahha haile hakan hakas hakem hakim hakir haklı hakça halas halat halay halaç halef halel halen halet halfa halik halim halis haliç halka haluk hamak hamal hamam hamel hamil hamiş hamla hamle hamse hamsi hamur hamut hamız hanak hanay hancı hande hanek hangi hanut hanya hanım hapaz hapis hapçı hapşu haram harap harar haraç harbe harbi harem harim harir haris hariç harlı harta harım harın hasar hasat hasbi hasep haset hasis haspa hassa hasse hasta hasut hasıl hasım hasır hatay hatif hatim hatip hatmi hatta hatun hatıl hatır havai havan havas havil havlu havlı havra havsa havut havuz havuç havva havya havza hayal hayat haybe haycı hayda haydi hayfa hayli hayta hayıf hayır hayıt hayız hazan hazar hazcı hazin hazne hazro hazık hazım hazır haçlı haşat haşin haşir haşiv haşiş haşıl hecin hedef heder hedik hekim helak helal helen helik helis helke helme helva hemen hempa hemze henüz hepsi herek herif herik herke hertz herze hesap heves heybe heyet hezel hezen hicap hicaz hiciv hicri hidiv hidra hikem hilaf hilal hilat hilye himen hindi hindu hippi hisar hisli hisse hissi hitam hitan hitap hitit hizan hizip hiççi hodan hodri hokey hokka honaz hoppa horon horoz horst hotoz hozan hozat hoşaf hoşur hoşça hudut hukuk hulul hulus humar humma humor humus hurda hurma hurra huruç husuf husul husus husye hutbe hutut huylu huzur hödük höyük hücre hücum hükmi hüküm hülle hülya hüner hünsa hürle hürya hüsün hüyük hüzme hüzün hıdiv hıfız hımış hınıs hırbo hırka hırlı hısım hıyar hızar hızla hızlı hızma hızır hışım hışır ibare ibate ibdai iblağ iblis ibraz ibret ibrik ibzal icbar icmal idadi idame idare idari iddia ideal idman idrak idrar ifade iffet ifham iflah iflas ifrat ifraz ifrağ ifrit ifsat iftar ihale ihata ihbar ihdas ihlal ihlas ihmal ihram ihraz ihraç ihsan ihsas ihtar ihvan ihzar ikame ikbal ikdam ikici ikili iklim ikmal ikona ikrah ikram ikrar ikraz iksir ilahe ilahi ilave ilbay ilenç ileri ileti ilgeç ilhak ilham ilhan ilkah ilkel ilkin illet ilmek ilmik ilzam imale imalı imame imbat imbik imdat imece imkan imlek imleç imlik imren imroz imsak inanç incik incil incir indis infak infaz ingin inkar inmek insaf insan intak intan intaç inzal inönü inşat ipeka ipham iplik ipsiz iptal ipucu ipçik irade iradi irfan irice irite irkme irmik ironi irsal irsen irşat isale isevi ishal iskan iskoç islam islav islim ismen ismet isnat ispat ispir ispit israf istek istem ister istif istim istop isveç isyan itaat iteği ithaf ithal itham itici itila itina itlaf itlik itmam itmek ivedi ivesi ivmek iyice izabe izafe izafi izale izhar izlek izlem izlev izmir izmit iznik izole izzet içeri içici içkin içlem içlik içmek içrek içsel içsiz içten içyüz iğdir iğdiş iğfal iğlik işeme işgal işkal işkil işlek işlem işlev işlik işmar işret işsiz iştah işteş işyar jakar japon jarse jeloz jeton jikle jilet joker jokey jüpon kabak kaban kabil kabin kabir kablo kabuk kabul kabus kabza kabız kadar kadeh kadem kader kadim kadir kadit kadro kadük kadın kafes kaffe kafir kafur kagir kahil kahin kahir kahpe kahta kahve kahya kahır kaide kaime kakao kakaç kakma kakül kakım kakıç kakış kalak kalan kalas kalay kalbi kalcı kalem kalfa kalma kalya kalça kalık kalım kalın kalıp kalıt kalıç kalış kaman kamer kamet kamga kamil kamus kamçı kamış kanal kanat kanca kaniş kanka kanlı kanma kanon kanto kanun kanık kanıt kanış kapak kapan kapik kapiş kaplı kapma kaput kapuz kapış karar karay karga kargo kargı karha karlı karma karne karni karst karun karye karık karın karış karşı kasap kasem kaset kasis kasko kaslı kasma kasnı kasti kasık kasım kasır kasıt katar katil katip katkı katlı katma katot katre katçı katık katım katır kavaf kavak kaval kavas kavat kavga kavil kavim kavis kavkı kavmi kavuk kavun kavut kavuz kayak kayan kayar kayaç kaygı kayma kayme kayra kayık kayın kayıp kayır kayıt kayış kayşa kazak kazan kazaz kazma kazık kazıl kazım kaçak kaçar kaçlı kaçma kaçta kaçık kaçış kağan kağnı kağıt kaşan kaşar kaşif kaşlı kaşık keban kebap kebir kebze keder kefal kefek kefen kefil kefir kefne kehle kekeç kekik kekre kelam kelek kelem kelep keler keles keleş kelik kelle kelli kemah kemal keman kemer kemha kemik kemre kenar kendi kenef kenet kenya kepek kepez kepir kepme kepçe kerde kerem keres kerih kerim keriz kerki kerte kerti kesat kesbi kesek kesel kesen keser kesif kesik kesim kesin kesir kesit kesiş keski kesme kesre ketal keten keton ketum kevel keven keyfi keyif keşan keşap keşen keşif keşik keşiş keşke keşki kibar kibir kifaf kikla kiler kilim kilis kilit kiliz killi kilsi kilüs kimse kimya kimüs kinci kinik kinin kiniş kinli kiraz kirde kireç kiril kiriş kirli kirpi kirve kisve kitap kitin kitle kitre kizir klapa klima klips klişe koala kobay kobra kodes kofra kofti koful kokak koket kokma kokot kokoz kokoş kokuş kolaj kolan kolay kolcu kolej kolik kolit kollu kolon kolpo kolsu kolye kolza komar kombi komik komot komut komün komşu konak kondu kongo konik konma konsa konuk konum konur konut konuş konya kopal kopek kopil kopma kopoy kopuk kopuz kopuş kopya kopça koral korku korna korno korse korte koruk korun korza kotan koton kotra kovan kovcu kovma kovuk kovuş koyak koyar koyma koyun koyut koyuş kozak kozan koçak koçan koçma koğuş koşam koşaç koşin koşma koşuk koşul koşum koşun koşut kramp krank kravl kraça kredi krema kriko kroki krome kroşe kubat kubbe kubur kucak kudas kuduz kudüm kukla kulak kulaç kulis kulle kulun kulüp kuman kumar kumaş kumcu kumla kumlu kumru kumsu kumuk kumul kumuç kunda kupes kuple kupon kupür kurak kural kuram kurca kurgu kurma kurna kuron kurul kurum kurut kuruş kurya kurye kusma kusur kutan kutlu kutnu kutsi kutup kutur kuver kuvve kuvöz kuytu kuyum kuzay kuzen kuzey kuzin kuşak kuşet kuşku kuşça kuşçu köfte köhne köken köklü köksü kökçü kölük kömbe kömeç kömür kömüş köpek köprü köpük körpe körük kösem kösnü kösçü kötek köycü köylü köçek köşek kübik küflü küfür kükre külah külek külli küllü külot külte külçe kümes küncü künde künye küplü kürar kürdi kürek kürit kürsü küskü küsme küspe küsuf küsur kütin kütle kütlü kütör kütük küvet küçük küşat küşne küşüm kıble kıdem kılgı kıllı kılma kılıf kılık kılır kılıç kılış kımıl kımız kınlı kınık kıpma kıpti kıpık kıran kırat kıray kıraç kırba kırca kırcı kırkı kırma kırık kırım kısas kıska kıskı kısma kısmi kıssa kısık kısım kısır kısıt kısış kıtal kıtık kıtır kıvam kıyak kıyam kıyas kıygı kıyma kıyye kıyık kıyım kıyın kıyış kızak kızan kızma kızık kızıl kızış kışla kışın kışır laden lades ladik ladin lafzi lafçı lafız lagar lagos lagün lahit lahos lahut lahza lakap lakin lakoz lakçı lamba lamel lando lanet lanse lapon largo larva laski lasta latif latin lavaj lavaş lavta lavuk layık lazca lazer lazut lazım laçin laçka laçın lağım lağıv ledün legal lehim lehçe lemis lenfa lento lepra lerze letçe levha levye leydi leyli lezar leziz leçek leğen libas liboş libre libya lider lifli liger liken likit likör liman limbo limit limon linet linin lipit lipom liret lirik lisan liste litre livar liyan lizol lizöz lobut lodos logos lojik lokal lokma lokum lonca longa lopur lorta lotus loşça lökoz löpür lüfer lügat lügol lümen lünet lüpçü lütuf lüzum lıkır lığlı maada mabat mabet mabut macar macun madam madde maddi madem maden mader madik madun mafiş mafya magma magri mahal mahfe mahfi mahir mahra mahur mahut mahya mahıv maile majör makak makam makas makat maket makro maksi makta maktu makul makus malak malaz malca malcı malen malik malta malul malum malya mamak mambo mamul mamur mamut manas manat manav manca manda manej manen manga mango mania manti manto mantı mançu maocu mapus maral maraz marda mariz marka marke marki maron martı maruf marul maruz marya masaj masal masat masif maske masnu mason mastı masum masun masör masöz matah matbu matem matiz matla matuf matuh maval maviş mavna mavra mayna mayın mayıs mazak mazot mazur maçka maşer maşuk mebde mebiz mebni mebus mecal mecaz mecmu mecra mecus medar medet medih medya medüz meful mehaz mehdi mehel mehil mehle mekan mekik melal melas melce melek meles melez meleş melik melon melul melun memat memba memnu memul memur menfa menfi menus menşe merak meral meram merci merek meres meret merih meriç mermi mersi mesai mesaj mesel mesen mesih mesmu mesul mesut metal metan metbu metil metin metis metot metre metro mevdu mevki mevla mevta mevut mevzi mevzu meyan meyil meyus meyve mezar mezat mezon mezra mezru mezun mezzo mezür meğer meşbu meşin meşru meşum midye mikap mikoz mikro milas milat milel milim milis milli mimar mimik mimli minik minör miras mirat miraç mirim mirza misak misal misel misil misis mitil mitos mitoz miyar miyav miyaz miyom miyop mizah mizan mizaç miçel mobil model modem modül moher molas molla moloz monat monte mopet moral moren morto moruk motel motif motor motto mozak moğol muare mucip mucir mucit mucuk mucur mudil mufla muhal muhat muhik muhil muhip muhit mujik mukim mukni mukus mulaj mumcu mumlu mumya munis murat muris musap muska muson musır mutaf mutat mutki mutlu mutçu muylu muzip muzsu muzır muğla muşlu muşta muştu möble mösyö mübah müdür müfit müftü mühim mühre mühür müjde mülga mülki mümas mümin münşi mürai mürit mürur müzik müziç müşir mıcır mıgri mıgır mıhlı mırra mısra mısır nabız nacak nadan nadas nadim nadir nafia nafiz nafta nahak nahif nahiv nahoş nahır nakdi nakil nakip nakit nakli nakıs nakız nakış nakşi nalan nalça nalın namaz namlu namlı namus nanay nanik narin nasip nasir nasıl nasıp nasır natuk natür natır nazal nazar nazik nazil nazir nazlı nazım nazır naçar naçiz nağme naşir nebat nebze necat necip nedbe neden nedim nefer nefes nefha nefir nefis nefiy nefti nehir nehiy nekes nekre nemli nemse nemçe nesep nesih nesil nesim nesir nesiç nesne nevir neyse neyçe nezif nezih nezir nezle neşet neşir nicel nifak nihai nihan nikah nikap nikel nimet ninni nipel nisai nisan nisap nispi nitel niyaz niyet nizam nizip niçin niğde nişan nodul nodül nogay nohut nokra nokta nonoş notam noter nukut numen nurlu nutuk nöbet nöron nüans nüfus nüfuz nükte nükul nüsha nüzul nısıf oberj obruk ocuma odacı odalı odeon odsuz ofans oflaz ofris ofset ojeli okapi okluk oksit oktan oktav okuma okume olası oleik olein olgun olmak olmaz olmuş oluru olçum ombra omlet onama ondan ongen ongun oniks onlar onluk onmak onsuz ontik oosit opera optik orada oralı orası oraya orcik orfoz organ orgcu orion orkit orlon orman ortak ortam ortay ortaç ortez ortoz otacı otama otist otizm otlak otluk otsul otsuz otçul ovalı ovmak ovmaç oyacı oyalı oydaş oylum oymak oynak oynaş ozmos ozmoz ozuga oğlak oğlan pabuç padok pafta pagan pahal paket palan palas palaz palet palto pampa pamuk panda panel panik papak papaz papel paraf parka parke parpa parsa parti parya parça pasaj pasak pasif paslı pasta pasçı pasör patak patal paten patik patoz paunt payan payda payen payet paylı pazar pazen paçal paçoz pedal peder pekçe pelin pelit pelte pelür pelüş pembe penes pengö penis pense penye pençe perde peren perki perma permi peron peruk perva pesek pesüs petek peyda peyke peçiç peşin peşli peştu pigme pikaj pikap piket pilav piliç pilli pilot pinel pines pinti pipet pirit pisik pisin piton piyan piyaz piyes piyon pizza pişek pişik pişim pişme pişti plaka plase plati plato plaza plöra poker polar polat polen polim polip polis polka polüm pomak pomat pompa ponje ponza popçu porno porte porto posof posta potas potin potuk potur poyra poşet prafa prens prese print proje prova pruva pudra pufla pulcu pullu pulsu puluç pumba punto pusat puset puslu pusma puvar pöçük pünez püren pürüz püsür pütür pıhtı pınar pırpı pırtı pısma rabıt racon radar radde radon radyo rafit raflı rafya ragbi rahat rahim rahip rahle rahne rakam raket rakik rakip rakit rakor rakun rakım ralli ramak rambo rampa randa ranza rapor rasat raspa rasyo rasıt ratıp raunt rayba rayiç reaya rebap recep recim redif refah refik refüj rehin rejim rekat rekiz rekor remel remil remiz rende resen resif resim resmi resul revak revan revaç revir reviş reybi reyon rezil reçel reşit reşme rical ricat rijit rimel ringa ritim riyal robot rodaj rodeo roket rolcü roman romen rosto rotil rotor rozet rubai ruble rufai rugan ruhen ruhlu ruhça rujlu rulet rumba rumca rumen rumuz runik rusya rusça rutin röfle rögar rötar rötuş rüesa rükün rüküş rüsum rüsup rüsva rütbe rüyet rızık sabah saban sabit sabuh sabun sabur sabık sabır sadak sadet sadik sadme sadık sadır safer safha safir safra safça sagar sahaf sahan sahih sahil sahip sahne sahra sahre sahte sahur saika sakaf sakak sakal sakar sakat sakil sakim sakin sakit saklı saksı sakın sakıt sakız salah salak salam salat salaş salcı salep salgı salik salim salip sallı salma salon saloz salpa salsa salta salto salur salvo salya salça salık saman samba samsa samur samut sanal sanat sancı sanem sangı sanki sanlı sanma sanrı sanık sanış sapak sapan sapkı saplı sapma sapık sapış sarak sarat saray saraç sargı sarig sarih sarma sarpa sarpi sarık sarım sarız sarış sason saten sathi satir satma satıh satım satın satır satış sauna savak savan savat savaş savca savcı savla savlo savma savur sayaç sayfa saygı sayha sayma sayrı sayım sayın sayış sazak sazan sazcı sazlı saçak saçlı saçma saçık saçış sağcı sağma sağrı sağım sağın sağır seans sebat seben sebep sebil sebze secde sedef sedir sedye sefer sefih sefil sefir segah seher sehim sehiv sehpa sekel sekil sekiz sekiş sekme seksi sekte selam selef selek selen selim selis selva selvi semah semai seman semen semer semih semiz sence sende senek senet senir senit sepek sepet sepya serak serap seren sergi serik serim serin seriş serme serum servi serçe sesli sesçi seter setik setir setre sevap sevda sever sevgi sevim sevir seviş sevme seyek seyir seyis seyit sezgi seziş sezme sezon seçal seçik seçim seçiş seçki seçme sibop sicil sicim sidik sifin sifon sigar sihir siirt sikke sikme silah silaj silgi silik silis siliş silki sille silme simav simge simit simya sinek sinik sinir siniş sinle sinme sinop sinsi sinüs siper sipsi siren sirer sirke sirmo siroz sirto sisli sitem sitil sivas sivil sivri siyah siyak siyek siyer siyme sizce sizde siğil skala sking skink slayt sofra softa sokak soket sokma sokra sokum sokur sokuş solak solcu solma soluk soluş somak somon somun somut somya sonar sonat sonda sonlu sonra sonuç sorgu sorit sorma sorti sorum sorun soruş sosis soyka soylu soyma soyum soyut soyuş soğan soğuk spazm sperm sprey stant statü steno stent stilo stres streç suare subay subra subye sucuk sucul sudak sudan sufle sukut sulak sulta suluk sumak sunak sungu sunma sunta sunum sunuş suoku supap surat suret suruç susak susam susku susma susta susuz susuş sutaş sutlu suvat suyuk suçlu sökel sökme sökük söküm sökün söküş sölom sönme sönük sönüm sönüş söven sövgü sövme sövüş sözce sözcü sözde sözel sözlü söğüt söğüş sübek sübut sübye sücut süfli sükse sükun sükut süluk sülük sülün sülüs sümek sümen sümer sümük süngü sünme sünni süper sürat sürek süreç sürfe sürgü sürme sürre sürur sürüm sürüş süsen süslü süsme sütlü sütre sütsü sütun sütçü süven süvme süyek süyüm süzek süzgü süzme süzük süzüş süğme sıcak sıfat sıfır sıhhi sıhri sıkma sıkça sıkım sıkıt sımak sınai sınav sındı sınma sınıf sınık sınır sırat sırcı sırlı sırma sırça sırık sırım sıska sıtma sıvık sıyga sıygı sızak sızma sızış sıçan sıçma sığla sığma sığın sığır tabak taban tabii tabip tabir tabla tablo tabur tabut tabya tacik tacil tacir taciz tadat tadil tadım tafra tafta tahin tahra tahta tahıl takas takat takim takip takke takla takma takoz taksa taksi takti takva takık takım talak talan talas talaz talaş talep talih talik talil talim talip tamah tamam tamik tamim tamir tanen tango tanin tanrı tanık tanım tanıt tanış taocu tapan tapir tapma tapon tapış taraf tarak taraz taraş taret tarif tarih tarik tariz tarla tartı tarık tarım tasar tasdi tasma tasni tasım tatar tatil tatlı tatma tavaf tavan tavas tavcı tavik taviz tavla tavlı tavuk tavus tavır tayfa tayga tayin tayip tayın tazim tazip taziz taçlı taşak taşlı taşma taşra taşsı taşçı taşıl taşım taşıt teali teati tebaa teber tecil tecim tedai tedip tehir teist teizm tekel teker tekil tekin tekir tekit tekke tekli tekme tekne tekst tekçi telaş telef telek telem teles telif telin telis telli telsi telve temas temek temel temin temiz tempo tenge tenha tenis tenor tente tenya teori tepik tepir tepiş tepke tepki tepme tepsi teras terbi terek teres terfi terim terki terli terme terzi terör tesir tesis tesit tesri testi tetik tetir tevdi tevek tevil tevki tevsi tevzi teyel teyit teyze tezat tezce tezek tezli teğet teşci teşne teşri teşyi tibet tifüs tikel tilki timüs tiner tipik tiraj tiran tirat tirit tiriz tirle tirsi tirşe titan titiz tohar tohum tokat tokaç toklu tokuz tokyo tolga tomak tomar tonaj toner tonga tonik tonla tonlu tonoz tonya topak topal topaz topaç topik topla toplu topuk topur toput topuz topçu torak torba torik torna tortu torul torum torun tosun tosya total totem toyca toycu toyga tozan tozlu tozma trafo trake trans tranş trata trias triko tromp tröst tufan tugay tuhaf tuluk tulum tulup tuman tumba tunik tunus turan turaç turba turbo turfa turna turne turno turta turşu tutak tutam tutar tutaç tutku tutma tutuk tutum tutuş tutya tuval tuyuğ tuzak tuzcu tuzla tuzlu tuzsu tuğcu tuğla tuğlu tuğra tvist törel tören törpü tövbe tözel tüfek tümce tümel tümen tümey tümör tümür tünek tünel tünme tüplü tüpçü türap türbe türel türev türki türkü türlü türüm tütme tütsü tütün tüvit tüylü tüyme tüzel tüzük tıbbi tıfıl tıkaç tıkma tıkım tıkır tıkız tımar tınaz tınma tıpkı tırak tıraş tırık tırıl tırıs ucube ukala uknum ulama ulema ulufe uluma umacı ummak umman umumi unluk unsur unvan urban urgan usanç usare uskur ussal utanç utmak uyarı uygar uygun uygur uyluk uymak uymaz uyruk uysal uyuma uzama uzlet uzluk uzman uçarı uçkun uçkur uçmak uçman uçsuz uçucu uğrak uğraş uğrun uşkun uşşak vacip vagon vahim vahit vahiy vahşi vakar vakfe vakit vakum vakur vakıa vakıf valiz valör vanlı vapur varak varan varda vargı varil varis varit varma varoş varta varto varış vasat vasıf vasıl vatan vatka vatoz vazıh vaşak vebal vecih veciz vedia vefat vehim vekil velet velev velur velut venüs verdi verem verev vergi verim verit veriş verme vezin vezir vezne veçhe video vigla villa viraj viral viran virüs visal viski vites vitir viyak viyol vizon vizör vişne vokal volan volta vonoz votka voyvo vukuf vulva vuraç vurgu vurma vuruk vuruş vusul vuzuh vücut vürut vüsat vıcık yaban yabgu yafta yahey yahni yahut yahşi yakin yakma yakut yakım yakın yakıt yakış yalak yalan yalaz yalpa yalpı yalım yalın yalız yamak yaman yamaç yamuk yamçı yanak yanal yanay yanaz yancı yangı yankı yanlı yanma yansı yanık yanıt yanış yapak yapay yapma yapık yapım yapıt yapış yarak yaran yarar yaraş yarda yaren yarga yargı yarka yarma yarık yarım yarın yarış yasak yasal yasin yaslı yasma yassı yatak yatay yatma yatsı yatuk yatçı yatık yatım yatır yatış yavan yavaş yaver yavru yavsı yavuz yayan yaygı yayla yaylı yayma yayık yayım yayın yayış yazar yazgı yazma yazık yazım yazın yazır yazıt yazış yağar yağcı yağlı yağma yağsı yağır yağız yağış yaşam yaşlı yaşça yaşıt yedek yediz yedme yegah yegan yekta yekun yelek yeleç yelin yelli yelme yelve yemci yemek yemen yemin yemiş yenge yengi yenik yenli yenme yerel yerey yergi yerli yerme yeter yetik yetim yetke yetki yetme yevmi yeygi yezit yeğen yeğin yeğni yeşil yeşim yirik yirmi yitik yitim yitiş yitme yivli yiyim yiyiş yiğit yobaz yoksa yokuş yokçu yolak yolcu yollu yolma yoluk yomra yonca yonga yonma yontu yorga yorma yortu yorum yosma yosun yoğun yudum yufka yukaç yulaf yular yumak yumma yumru yumuk yunak yunan yunma yunus yurdu yutak yutma yutum yutuş yuvak yuvar yuvgu yönlü yörük yüklü yükçü yüküm yükün yülgü yülük yünlü yürek yürük yüsrü yüzde yüzer yüzey yüzlü yüzme yüzük yüzüş yıkma yıkık yıkım yıkış yılan yılgı yılkı yılma yılık yırık yığma yığın yığış zabit zabıt zafer zahir zahit zaire zalim zaman zamir zamlı zamme zanka zanlı zarar zarcı zarif zarsı zarta zaten zayıf zağar zağcı zağlı zeban zebra zebun zebur zecir zecri zefir zehap zehir zekat zeker zelil zelve zemin zenci zenne zerde zerre zeval zevat zevce zeyil zifaf zifin zifir zifos zigon zigot zihaf zihin zihni zikir zilli zimmi zinde zirai zirve ziyan zloti zombi zorba zorca zorgu zorla zorlu zorun zuhur zulüm zurna zübde zühal zühre zühul zükam zülal zülüf zümre züppe zürra züyuf zıbın zıhlı zımba zımni zıpka zıpır zırva çabuk çadır çakal çakar çaker çakma çakra çakıl çakım çakın çakır çakış çalak çalap çalar çalgı çalkı çalma çaltı çalık çalım çalış çamat çamaş çamur çamça çanak çancı çandı çanlı çanta çapak çapar çapla çaplı çapma çapul çaput çarka çarpı çarık çarşı çasar çatak çatal çatkı çatma çatık çatış çavlı çavma çavun çavuş çayan çaycı çaylı çayır çağla çağma çağrı çaşıt çebiç çecik çedik çehre çekek çekel çekem çeker çekik çekim çekiç çekiş çekme çekçe çekül çelek çelen çelgi çelik çelim çello çelme çemen çemiç çemiş çemçe çenek çenet çengi çepel çeper çepez çepin çepni çerağ çerez çerge çerçi çetin çevik çevre çevri çeyiz çeçen çeşit çeşme çeşni çifte çigan çilek çilli çimek çimen çimme çince çinko çinli çipil çiriş çiroz çisen çitar çiten çitme çivit çizer çizge çizgi çizik çizim çiziş çizme çiçek çiğde çiğil çiğin çiğit çiğli çişik çoban çocuk çokal çoklu çokça çokçu çolak çolpa çomak çomar çopra çopur çorak çorap çorba çorlu çorum çotra çotuk çoğul çoğun çubuk çukur çulcu çulha çumra çupra çuval çuvaş çuşka çökek çökel çökme çökük çöküm çöküş çömez çömme çömçe çöplü çöpçü çörek çörkü çörtü çöven çözgü çözme çözük çözüm çözüş çöğme çöğür çükür çünkü çürük çıban çıdam çıfıt çıkak çıkan çıkar çıkma çıkra çıktı çıkık çıkın çıkıt çıkış çınar çıngı çıpır çırak çırağ çırpı çıtak çıvma çıyan çığır öbürü ödeme ödlek ödünç öksüz ölgün ölmek ölmez ölmüş ölçek ölçer ölçme ölçüm ölçün ölçüt ölçüş öncel öncül önder öneri öneze önlem önlük önsel öpmek örcin ördek öreke örgen örgün örgüt örmek örnek örtme örtük örtüş örücü örülü öteki ötmek ötücü ötürü övmek övücü övünç özalp özbek özdek özden özdeş özeme özeni özenç özerk özgül özgün özgür özlem özlük öznel özsel öğlen öğrek ücret üdeba üfleç ülfet ülger ülker ülser ümera ümmet ümran ündeş ünite ünlem ünsüz ürdün üreme üremi ürgüp ürkek ürkme ürküş üryan ürüme üsera üsküf üslup üstat üstel üstlü üstün ütmek ütücü ütülü üzere üzeri üzgün üzlük üzmek üzücü üzünç üçgen üçgül üçkat üçler üçlük üçtaş üğrüm üşenç üşmek üşüme ıhmak ılgar ılgaz ılgım ılgın ıltar ılıca ılıma ırama ırgat ırkçı ırmak ıskat ıslah ıslak ıslık ısrar ıssız ıstar ıtlak ıtrah ızgın ızrar ığdır ığrıp ışkın ıştır ışıma şaban şafak şafii şaful şahap şahin şahit şahne şahsi şahım şahıs şaibe şaire şakak şakul şalak şaman şamar şamil şanlı şapel şapka şaplı şapçı şarap şarki şarkı şarpi şaryo şataf şatır şavul şayak şayan şayet şayia şayka şaşaa şaşma şebek şedde şedit şefik şehir şehit şehla şekel şeker şekil şekli şekva şelek şemse şemsi şepit şeran şeref şerha şerif şerik şerir şerit şerpa şetim şifon şifre şikar şilem şilep şilin şilte şimal şimdi şinik şinto şiran şirin şişek şişik şişko şişli şişme şoför şopar şorca şoset şoson şoven şuara şubat şuhut şunca şunda şurup şölen şömiz şöyle şükür şümul şüphe şınav şıpka şırak"};
+const POOL = WORDS.pool.split(" ");
+const VALID = new Set(WORDS.valid.split(" "));
+POOL.forEach(w => VALID.add(w));
+
+const COLS = 5;
+const ALPHA = "abcçdefgğhıijklmnoöprsştuüvyz";
+const LAYOUT = ["ertyuıopğü", "asdfghjklşi", "+zcvbnmöç-"];
+const ICON_BACK = '<svg viewBox="0 0 24 24"><path d="M9 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-6-6z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>';
+const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+const S = ["absent", "present", "correct"];
+
+const $ = s => document.querySelector(s);
+const up = s => s.toLocaleUpperCase("tr-TR");
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const fmt = n => n.toLocaleString("tr-TR");
+
+let stats = store.get("inat-stats", { played: 0, best: null, total: 0, hist: [] });
+let rows, remaining, cur = "", won = false, busy = false;
+
+/* ---------- Puanlama ---------- */
+// desen: her harf için 0 yok, 1 başka yerde, 2 doğru yer → 3 tabanında tek sayı
+function pattern(g, a) {
+  const res = [0, 0, 0, 0, 0], left = {};
+  for (let i = 0; i < COLS; i++) {
+    if (g[i] === a[i]) res[i] = 2;
+    else left[a[i]] = (left[a[i]] || 0) + 1;
+  }
+  for (let i = 0; i < COLS; i++) if (res[i] !== 2 && left[g[i]]) { res[i] = 1; left[g[i]]--; }
+  return res.reduce((n, v) => n * 3 + v, 0);
+}
+const decode = p => { const r = []; for (let i = 0; i < COLS; i++) { r.unshift(p % 3); p = Math.floor(p / 3); } return r; };
+
+/* Rakip: kalan kelimeleri desenlere göre grupla, en kalabalık grubu seç.
+   Eşitlikte en az bilgi veren (en az yeşil, sonra en az sarı) deseni tercih et. */
+function adversary(g) {
+  const buckets = new Map();
+  for (const w of remaining) {
+    const p = pattern(g, w);
+    const b = buckets.get(p);
+    if (b) b.push(w); else buckets.set(p, [w]);
+  }
+  let best = null, bestP = 0;
+  const info = p => decode(p).reduce((s, v) => s + (v === 2 ? 10 : v), 0);
+  for (const [p, ws] of buckets) {
+    if (!best || ws.length > best.length || (ws.length === best.length && info(p) < info(bestP))) { best = ws; bestP = p; }
+  }
+  return [bestP, best];
+}
+
+/* ---------- DOM ---------- */
+const board = $("#board"), kb = $("#kb"), scroll = $("#scroll");
+const keys = {};
+LAYOUT.forEach(line => {
+  const kr = document.createElement("div");
+  kr.className = "kr";
+  for (const ch of line) {
+    const b = document.createElement("button");
+    b.className = "key";
+    b.tabIndex = -1;
+    if (ch === "+") { b.classList.add("wide"); b.textContent = "GİR"; b.dataset.k = "enter"; }
+    else if (ch === "-") { b.classList.add("wide"); b.innerHTML = ICON_BACK; b.dataset.k = "back"; b.setAttribute("aria-label", "Sil"); }
+    else { b.textContent = up(ch); b.dataset.k = ch; keys[ch] = b; }
+    kr.appendChild(b);
+  }
+  kb.appendChild(kr);
+});
+kb.addEventListener("mousedown", e => e.preventDefault());
+kb.addEventListener("click", e => { const b = e.target.closest(".key"); if (b) press(b.dataset.k); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") return closeAll();
+  if (e.ctrlKey || e.metaKey || e.altKey || isOpen()) return;
+  if (e.key === "Enter") { e.preventDefault(); press("enter"); }
+  else if (e.key === "Backspace") { e.preventDefault(); press("back"); }
+  else if (e.key.length === 1) { const k = e.key.toLocaleLowerCase("tr-TR"); if (ALPHA.includes(k)) press(k); }
+});
+
+function makeRow() {
+  const row = document.createElement("div");
+  row.className = "row";
+  for (let c = 0; c < COLS; c++) {
+    const t = document.createElement("div");
+    t.className = "tile";
+    t.innerHTML = '<div class="in"><div class="face front"><span></span></div><div class="face back"></div></div>';
+    row.appendChild(t);
+  }
+  board.appendChild(row);
+  return row;
+}
+function inputRow() { return board.lastElementChild; }
+function paintRow(row, word, p, animate) {
+  const res = decode(p);
+  [...row.children].forEach((t, i) => {
+    t.querySelector(".front span").textContent = up(word[i]);
+    t.querySelector(".back").textContent = up(word[i]);
+    t.classList.add("filled");
+    t.dataset.s = S[res[i]];
+    t.querySelector(".in").style.transitionDelay = animate ? i * 260 + "ms" : "0ms";
+    t.classList.add("flip");
+  });
+}
+function paintKeys() {
+  const best = {};
+  for (const { w, p } of rows) decode(p).forEach((v, i) => { if (!(w[i] in best) || v > best[w[i]]) best[w[i]] = v; });
+  for (const ch in keys) { if (ch in best) keys[ch].dataset.s = S[best[ch]]; else delete keys[ch].dataset.s; }
+}
+function renderLeft(bump) {
+  const n = remaining.length, pill = $("#pill");
+  $("#left").textContent = won ? "Köşeye sıkıştırdınız!" : n === 1 ? "Tek kelime kaldı" : `${fmt(n)} olası kelime`;
+  pill.classList.toggle("one", n === 1);
+  if (bump) { pill.classList.remove("bump"); void pill.offsetWidth; pill.classList.add("bump"); }
+}
+function toBottom() { requestAnimationFrame(() => scroll.scrollTop = scroll.scrollHeight); }
+
+/* ---------- Oyun ---------- */
+function press(k) {
+  if (busy || won) return;
+  if (k === "enter") return submit();
+  const row = inputRow(), tiles = row.children;
+  if (k === "back") {
+    if (!cur.length) return;
+    cur = cur.slice(0, -1);
+    const t = tiles[cur.length];
+    t.classList.remove("filled");
+    t.querySelector(".front span").textContent = "";
+    return;
+  }
+  if (cur.length >= COLS) return;
+  const t = tiles[cur.length];
+  cur += k;
+  t.querySelector(".front span").textContent = up(k);
+  t.classList.add("filled");
+  t.classList.remove("pop"); void t.offsetWidth; t.classList.add("pop");
+}
+function shake() {
+  const row = inputRow();
+  row.classList.remove("shake"); void row.offsetWidth; row.classList.add("shake");
+}
+async function submit() {
+  if (cur.length < COLS) { shake(); return toast("Yetersiz harf"); }
+  if (!VALID.has(cur)) { shake(); return toast("Sözlükte bulunamadı"); }
+  const word = cur;
+  cur = "";
+  const [p, next] = adversary(word);
+  remaining = next;
+  rows.push({ w: word, p });
+  won = p === 242;   // 3^5 - 1: hepsi yeşil
+  save();
+  busy = true;
+  paintRow(inputRow(), word, p, true);
+  await wait(260 * 4 + 640);
+  paintKeys();
+  renderLeft(true);
+  busy = false;
+  if (won) {
+    [...inputRow().children].forEach((t, i) => { t.style.animationDelay = i * 90 + "ms"; t.classList.add("bounce"); });
+    record();
+    toast(rows.length <= 4 ? "İnanılmaz!" : rows.length <= 6 ? "Harika!" : "Sonunda!", 1900);
+    setTimeout(() => { if (!isOpen()) open("stats"); }, 1700);
+  } else {
+    const r = makeRow(); r.classList.add("in");
+    toBottom();
+    if (remaining.length === 1) toast("Kaçacak yeri kalmadı!");
+  }
+}
+
+function start(fresh) {
+  const s = fresh ? null : store.get("inat-game", null);
+  rows = s ? s.rows : [];
+  cur = ""; busy = false;
+  remaining = POOL.slice();
+  for (const { w, p } of rows) remaining = remaining.filter(a => pattern(w, a) === p);
+  won = rows.length > 0 && rows[rows.length - 1].p === 242;
+  board.innerHTML = "";
+  board.classList.add("instant");
+  rows.forEach(({ w, p }) => paintRow(makeRow(), w, p, false));
+  if (!won) makeRow();
+  void board.offsetWidth;
+  board.classList.remove("instant");
+  paintKeys();
+  renderLeft(false);
+  save();
+  toBottom();
+}
+function save() { store.set("inat-game", { rows }); }
+
+/* ---------- İstatistik ---------- */
+function record() {
+  stats.played++;
+  stats.total += rows.length;
+  stats.best = stats.best === null ? rows.length : Math.min(stats.best, rows.length);
+  stats.hist = [...stats.hist, rows.length].slice(-50);
+  store.set("inat-stats", stats);
+}
+function renderStats() {
+  const avg = stats.played ? (stats.total / stats.played).toFixed(1).replace(".", ",") : "–";
+  $("#statNums").innerHTML = [[stats.played, "Kazanılan"], [stats.best ?? "–", "En İyi"], [avg, "Ortalama"], [stats.hist.at(-1) ?? "–", "Son Oyun"]]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+  let rem = POOL.slice();
+  const lines = rows.map(({ w, p }) => { rem = rem.filter(a => pattern(w, a) === p); return `<div><b>${up(w)}</b><span>${rem.length === 1 && p === 242 ? "bulundu" : fmt(rem.length) + " kaldı"}</span></div>`; }).join("");
+  $("#resultBox").innerHTML = won
+    ? `<div class="result"><div class="big">${rows.length}</div><p>tahminde köşeye sıkıştırdınız</p></div><h3>Tahminleriniz</h3><div class="trail">${lines}</div><h3>Genel</h3>`
+    : "";
+  $("#foot").innerHTML = (won ? `<button class="btn ghost" id="shareBtn">${ICON_SHARE}Paylaş</button>` : "") + `<button class="btn" id="againBtn">Yeni oyun</button>`;
+  if (won) $("#shareBtn").onclick = share;
+  $("#againBtn").onclick = () => { closeAll(); setTimeout(() => start(true), 250); };
+}
+async function share() {
+  const sq = ["⬜", "🟨", "🟩"];
+  const grid = rows.map(({ p }) => decode(p).map(v => sq[v]).join("")).join("\n");
+  const text = `İnat: kelimeyi ${rows.length} tahminde köşeye sıkıştırdım\n\n${grid}`;
+  if (navigator.share && matchMedia("(pointer:coarse)").matches) {
+    try { await navigator.share({ text }); return; } catch {}
+  }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); }
+  catch { toast("Kopyalanamadı"); }
+}
+
+/* ---------- Toasts ---------- */
+function toast(msg, ms = 1400) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+
+/* ---------- Overlays ---------- */
+const scrim = $("#scrim"), drawer = $("#drawer");
+function isOpen() { return scrim.classList.contains("open"); }
+function closeAll() {
+  scrim.classList.remove("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  document.activeElement && document.activeElement.blur();
+}
+function open(id) {
+  const wasDrawer = drawer.classList.contains("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  if (id === "stats") renderStats();
+  scrim.classList.add("open");
+  setTimeout(() => $("#" + id).classList.add("open"), wasDrawer ? 180 : 0);
+}
+$("#menuBtn").onclick = () => { scrim.classList.add("open"); drawer.classList.add("open"); };
+scrim.onclick = closeAll;
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeAll(); }));
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"), c = e.target.closest("[data-close]");
+  if (o) open(o.dataset.open);
+  else if (c) closeAll();
+});
+$("#newBtn").onclick = () => { if (!busy) start(true); };
+$("#drawerNew").onclick = () => { closeAll(); setTimeout(() => start(true), 200); };
+
+/* ---------- Boot ---------- */
+start(false);
+if (!store.get("inat-seen", false)) { store.set("inat-seen", true); setTimeout(() => open("help"), 400); }
+</script>
+</body>
+</html>
