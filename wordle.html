@@ -141,9 +141,9 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;j
 .sw[aria-checked=true]::after{transform:translateX(18px)}
 
 /* Drawer */
-.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);box-shadow:20px 0 60px rgba(20,20,20,.08);
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);
   transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
-.drawer.open{transform:none}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
 .dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
 .dh .brand{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:22px}
 .dh small{display:block;font-family:Inter,sans-serif;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px}

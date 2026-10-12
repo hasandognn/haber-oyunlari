@@ -33,6 +33,19 @@ a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);tran
 .tag{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:99px;background:var(--soft);color:var(--muted)}
 .tag.live{background:#eaf3ed;color:#4b8a61}
 .ph{font-family:Fraunces,Georgia,serif;font-size:34px;color:#c9c9c4}
+.bars{display:flex;flex-direction:column;gap:5px;width:150px}
+.bars i{height:18px;border-radius:5px}
+.hexs{position:relative;width:96px;height:96px}
+.hexs i{position:absolute;width:32px;height:28px;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);background:#e6e6e2}
+.hexs i.m{background:#f1d27a}
+.dots{display:grid;grid-template-columns:repeat(4,18px);gap:6px}
+.dots i{width:18px;height:18px;border-radius:50%;background:#e6e6e2}
+.dots i.t{background:#a9c6e8}.dots i.s{background:#f1d27a}
+.ranks{display:flex;flex-direction:column;gap:5px;width:150px}
+.ranks i{height:14px;border-radius:5px}
+.waf{display:grid;grid-template-columns:repeat(5,18px);gap:4px}
+.waf i{width:18px;height:18px;border-radius:4px;background:#e9e9e5}
+.waf i.g{background:#6aa780}.waf i.y{background:#d8b257}.waf i.h{visibility:hidden}
 @keyframes in{to{opacity:1;transform:none}}
 </style>
 </head>
@@ -47,6 +60,36 @@ a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);tran
       <span class="tag live">Oyna</span>
       <h2>Kelime</h2>
       <p>Gizli kelimeyi 6 denemede bulun.</p>
+    </a>
+    <a class="card" href="baglanti.html" style="--i:1">
+      <div class="art"><div class="bars"><i style="background:#f1d27a"></i><i style="background:#a8cf98"></i><i style="background:#a9c6e8"></i><i style="background:#c9b2e3"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Bağlantı</h2>
+      <p>16 kelimeyi ortak özelliklerine göre 4 gruba ayırın.</p>
+    </a>
+    <a class="card" href="petek.html" style="--i:2">
+      <div class="art"><div class="hexs"><i class="m" style="left:32px;top:34px"></i><i class="" style="left:32px;top:4px"></i><i class="" style="left:56px;top:19px"></i><i class="" style="left:56px;top:49px"></i><i class="" style="left:32px;top:64px"></i><i class="" style="left:8px;top:49px"></i><i class="" style="left:8px;top:19px"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Petek</h2>
+      <p>7 harften, ortadakini kullanarak kelimeler türetin.</p>
+    </a>
+    <a class="card" href="iz.html" style="--i:3">
+      <div class="art"><div class="dots"><i class="t"></i><i class="t"></i><i class="s"></i><i class="s"></i><i class="t"></i><i class="s"></i><i class="s"></i><i class="t"></i><i class="t"></i><i class="t"></i><i class="s"></i><i class="t"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>İz</h2>
+      <p>Temanın gizli kelimelerini harf ızgarasında çizerek bulun.</p>
+    </a>
+    <a class="card" href="anlam.html" style="--i:4">
+      <div class="art"><div class="ranks"><i style="width:92%;background:#6aa780"></i><i style="width:74%;background:#6aa780"></i><i style="width:52%;background:#d8b257"></i><i style="width:30%;background:#d8b257"></i><i style="width:14%;background:#df8a78"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Anlam</h2>
+      <p>Anlamca ne kadar yakın olduğunuzu görerek gizli kelimeyi bulun.</p>
+    </a>
+    <a class="card" href="gofret.html" style="--i:5">
+      <div class="art"><div class="waf"><i class="g"></i><i class="g"></i><i class="y"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="h"></i><i class="g"></i><i class="h"></i><i class="y"></i><i class="y"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="h"></i><i class="y"></i><i class="h"></i><i class="g"></i><i class="g"></i><i class="y"></i><i class="g"></i><i class="g"></i><i class="g"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Gofret</h2>
+      <p>Harflerin yerini değiştirerek 6 kelimelik ızgarayı düzeltin.</p>
     </a>
   </div>
 </main>

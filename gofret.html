@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Gofret — Günlük Harf Takası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#efefec; --soft:#f7f7f5;
+  --correct:#6aa780; --present:#d8b257; --absent:#e9e9e5;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --gap:8px;
+  --ts:min(68px, calc((100vw - 64px) / 5), calc((100vh - 340px) / 5));
+  --ts:min(68px, calc((100vw - 64px) / 5), calc((100dvh - 340px) / 5));
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit;color:inherit}
+.app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+
+/* Header */
+header{flex:none;border-bottom:1px solid var(--line)}
+.bar{max-width:600px;margin:0 auto;height:60px;padding:0 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bar .right{display:flex;justify-content:flex-end;gap:2px}
+.title{font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;line-height:1}
+.ib{width:40px;height:40px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:background-color .25s var(--ease),transform .15s var(--ease)}
+.ib:hover{background:var(--soft)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* Main */
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
+.sub{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);letter-spacing:.01em;height:28px}
+.sub .dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background-color .25s var(--ease),border-color .25s}
+.chip:hover{background:var(--soft);border-color:var(--line-strong)}
+
+.board{position:relative;display:grid;grid-template-columns:repeat(5,var(--ts));grid-template-rows:repeat(5,var(--ts));gap:var(--gap);padding:var(--gap);border-radius:18px;background:var(--soft);touch-action:none;user-select:none;-webkit-user-select:none}
+.tile{border-radius:12px;display:grid;place-items:center;font-size:calc(var(--ts) * .46);font-weight:700;cursor:grab;background:var(--absent);color:var(--ink);
+  transition:background-color .35s var(--ease),color .35s var(--ease),transform .45s var(--ease),box-shadow .25s var(--ease)}
+.tile[data-s=correct]{background:var(--correct);color:#fff;cursor:default}
+.tile[data-s=present]{background:var(--present);color:#fff}
+.tile.sel{box-shadow:0 0 0 3px var(--ink);transform:scale(.94)}
+.tile.drag{transition:none;z-index:5;cursor:grabbing;box-shadow:0 14px 34px rgba(0,0,0,.18)}
+.tile.over{box-shadow:0 0 0 3px var(--ink)}
+.tile.bounce{animation:bounce .8s var(--ease) both;animation-delay:calc(var(--d) * 45ms)}
+.tile.reveal{background:#cfd8e3;color:var(--ink)}
+.tile.in{animation:fadeIn .5s var(--ease) both;animation-delay:calc(var(--d) * 20ms)}
+.board.done .tile{cursor:default}
+
+.swaps{display:flex;flex-direction:column;align-items:center;gap:2px}
+.swaps b{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1;transition:color .3s}
+.swaps b.bump{animation:bump .4s var(--ease)}
+.swaps span{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.swaps.low b{color:#c4553f}
+.stars{display:flex;gap:6px;height:28px}
+.stars svg{width:26px;height:26px;fill:var(--present);stroke:none;animation:star .5s var(--ease) both;animation-delay:calc(var(--d) * 120ms + 600ms)}
+.stars svg.off{fill:var(--key)}
+
+@keyframes bounce{0%,100%{transform:translateY(0)}35%{transform:translateY(-18%)}60%{transform:translateY(3%)}80%{transform:translateY(-5%)}}
+@keyframes fadeIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
+@keyframes bump{40%{transform:scale(1.18)}}
+@keyframes star{from{opacity:0;transform:scale(.3) rotate(-30deg)}to{opacity:1;transform:none}}
+
+.btn{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:13px 22px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.96)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+
+/* Toasts */
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s var(--ease),transform .35s var(--ease);white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-6px) scale(.97)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+
+/* Overlays */
+.scrim{position:fixed;inset:0;background:rgba(250,250,248,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:20px;z-index:50;pointer-events:none}
+.card{width:100%;max-width:410px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(20,20,20,.12),0 2px 8px rgba(20,20,20,.04);padding:26px 26px 24px;position:relative;
+  opacity:0;transform:translateY(14px) scale(.975);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.modal.open{pointer-events:auto}
+.modal.open .card{opacity:1;transform:none}
+.card h2{font-weight:700;font-size:21px;margin:0 0 14px;letter-spacing:-.015em}
+.card h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px}
+.card p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#3a3a3d}
+.card ul{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.6;color:#3a3a3d}
+.close{position:absolute;top:14px;right:14px}
+.hr{height:1px;background:var(--line);margin:18px 0}
+.note{font-size:13px!important;color:var(--muted)!important}
+.ex{display:flex;gap:5px;margin:12px 0 8px}
+.mini{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:17px;background:var(--absent)}
+.mini.c{background:var(--correct);color:#fff}
+.mini.p{background:var(--present);color:#fff}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats b{display:block;font-size:30px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.dist{display:flex;flex-direction:column;gap:6px}
+.dr{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.dr i{font-style:normal;width:62px;color:var(--muted);font-weight:500;font-size:12.5px}
+.db{height:22px;min-width:26px;width:0;border-radius:6px;background:var(--key);display:flex;align-items:center;justify-content:flex-end;padding:0 8px;font-variant-numeric:tabular-nums;transition:width .8s var(--ease)}
+.db.hl{background:var(--correct);color:#fff}
+.result{text-align:center;margin-bottom:4px}
+.result p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.result .stars{justify-content:center;height:auto}
+.words{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px}
+.words span{background:var(--soft);border-radius:8px;padding:5px 9px;font-size:13px;font-weight:600;letter-spacing:.04em}
+.foot{display:flex;align-items:center;gap:16px;margin-top:22px}
+.foot>div{flex:1}
+.foot small{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.clock{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+/* Drawer */
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);
+  transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
+.dh .brand{font-weight:700;font-size:20px;letter-spacing:-.015em}
+.dh small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;letter-spacing:0}
+.item{width:100%;border:0;background:transparent;display:flex;align-items:center;gap:14px;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;
+  opacity:0;transform:translateX(-10px);transition:opacity .45s var(--ease),transform .55s var(--ease),background-color .25s var(--ease)}
+.drawer.open .item{opacity:1;transform:none;transition-delay:calc(var(--i) * 45ms + 120ms),calc(var(--i) * 45ms + 120ms),0s}
+.item:hover{background:var(--soft)}
+.item.on{background:var(--soft);font-weight:600}
+.item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.item.on svg{color:var(--ink)}
+.sep{height:1px;background:var(--line);margin:10px 8px}
+.dfoot{margin-top:auto;padding:0 12px;font-size:12px;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div><button class="ib" id="menuBtn" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button></div>
+      <h1 class="title">Gofret</h1>
+      <div class="right">
+        <button class="ib" data-open="help" aria-label="Nasıl oynanır"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg></button>
+        <button class="ib" data-open="stats" aria-label="İstatistikler"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="board" id="board" aria-label="Oyun tahtası"></div>
+    <div class="swaps" id="swaps"><b id="left">15</b><span>Kalan hamle</span></div>
+  </main>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
+
+<nav class="drawer" id="drawer" aria-label="Menü">
+  <div class="dh">
+    <div class="brand">Gofret<small>Haber Oyunları</small></div>
+    <button class="ib" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button class="item" style="--i:0" data-mode="daily"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Günün Gofreti</button>
+  <button class="item" style="--i:1" data-mode="practice"><svg viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3M18 4l2 3-2 3M18 14l2 3-2 3"/></svg>Pratik Modu</button>
+  <div class="sep"></div>
+  <button class="item" style="--i:2" data-open="help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>Nasıl Oynanır</button>
+  <button class="item" style="--i:3" data-open="stats"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>İstatistikler</button>
+  <div class="sep"></div>
+  <a class="item" style="--i:4;text-decoration:none;color:inherit" href="index.html"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Tüm Oyunlar</a>
+  <div class="dfoot">Her gün yeni bir gofret.</div>
+</nav>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="helpT">Nasıl Oynanır</h2>
+    <p>Izgarada 3 yatay ve 3 dikey olmak üzere <b>6 kelime</b> gizli. Harfler karıştırılmış; yerlerini değiştirerek bütün kelimeleri düzeltin.</p>
+    <ul>
+      <li>Bir harfi başka bir harfin üzerine sürükleyin ya da iki harfe sırayla dokunun.</li>
+      <li>Hamle sayınız sınırlı. Bulmaca 10 hamlede çözülebilir; kalan her hamle bir yıldız.</li>
+    </ul>
+    <h3>Renkler</h3>
+    <div class="ex"><div class="mini c">K</div><div class="mini">E</div><div class="mini">L</div><div class="mini">E</div><div class="mini">M</div></div>
+    <p><b>Yeşil</b>: harf doğru yerde.</p>
+    <div class="ex"><div class="mini">K</div><div class="mini p">L</div><div class="mini">A</div><div class="mini">E</div><div class="mini">M</div></div>
+    <p><b>Sarı</b>: harf bu satırda ya da sütunda var ama başka bir yerde. Köşedeki ve kesişimdeki harfler iki kelimeye de aittir.</p>
+    <div class="ex"><div class="mini">K</div><div class="mini">A</div><div class="mini">L</div><div class="mini">E</div><div class="mini">M</div></div>
+    <p><b>Gri</b>: harf bu satırda ve sütunda yok.</p>
+    <div class="hr"></div>
+    <p class="note">Her gece yarısı yeni bir gofret gelir. Pratik modunda istediğiniz kadar oynayabilirsiniz.</p>
+  </div>
+</div>
+
+<div class="modal" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="statsT">İstatistikler</h2>
+    <div id="resultBox"></div>
+    <div class="stats" id="statNums"></div>
+    <h3>Yıldız Dağılımı</h3>
+    <div class="dist" id="dist"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script>
+/* w: [satır0, satır2, satır4, sütun0, sütun2, sütun4], s: karışık başlangıç, p: en az kaç takasla çözüldüğü */
+const PUZZLES = [{"w":["eylem","kadın","kurye","erkek","lider","monte"],"s":["r","l","n","e","e","r","e","o","t","y","d","ı","e","y","a","e","k","u","i","m","k"],"p":10},
+{"w":["sahip","yıkım","ırmak","saygı","hakem","pamuk"],"s":["ı","ı","e","h","s","a","r","a","y","p","k","a","m","a","m","u","a","ı","i","g","k"],"p":9},
+{"w":["kumaş","rekor","aşkın","karga","mekik","şirin"],"s":["k","i","ş","a","ş","a","g","i","m","r","k","ı","i","u","e","e","o","r","a","k","n"],"p":10},
+{"w":["parça","paket","zaman","papaz","rakam","altın"],"s":["a","p","ı","t","ç","r","a","m","e","z","k","p","a","a","a","a","l","a","a","a","n"],"p":9},
+{"w":["final","ritim","rakun","firar","nutuk","limon"],"s":["f","i","a","o","l","r","u","u","r","n","t","m","i","i","i","k","u","a","n","a","i"],"p":9},
+{"w":["acele","marul","kemik","aşmak","evrim","emlak"],"s":["a","i","e","m","l","a","c","k","m","m","r","a","e","l","i","a","e","u","ş","v","k"],"p":10},
+{"w":["borsa","lamba","kanca","balık","roman","arama"],"s":["b","k","o","a","n","a","l","o","a","s","m","ı","a","a","a","m","r","r","a","c","b"],"p":9},
+{"w":["aslan","makas","kanal","açmak","lakin","nasıl"],"s":["ı","m","a","a","ç","l","s","k","a","a","k","a","a","a","l","a","s","i","n","a","n"],"p":9},
+{"w":["tavuk","bulut","kütle","tabak","velet","kitle"],"s":["t","k","v","l","i","k","u","a","b","u","l","ü","u","a","a","e","t","l","e","t","e"],"p":10},
+{"w":["sprey","nesil","komşu","sinek","resim","yolcu"],"s":["k","ş","m","i","p","s","e","o","e","e","s","y","l","e","o","r","i","n","c","i","u"],"p":10},
+{"w":["beyaz","yazar","takma","bayat","yazık","zurna"],"s":["n","a","a","t","k","a","a","u","z","a","z","a","b","ı","a","r","e","y","a","m","y"],"p":9},
+{"w":["koyma","panik","keser","kapak","yunus","asker"],"s":["a","a","y","i","k","s","s","m","r","a","n","u","u","a","o","p","k","e","k","e","e"],"p":10},
+{"w":["sürüş","biber","tatlı","sabit","robot","şarkı"],"s":["l","r","s","o","t","o","i","a","a","i","b","ş","r","a","b","k","e","ü","t","ü","ı"],"p":10},
+{"w":["gitme","moruk","şahin","gümüş","tarih","erken"],"s":["g","i","e","m","a","ş","m","a","e","o","r","t","ü","i","i","u","r","ü","k","h","n"],"p":10},
+{"w":["yüzey","kurum","tarak","yakut","zarar","yemek"],"s":["z","u","t","e","u","k","a","y","r","u","r","m","ü","a","a","a","e","a","e","y","k"],"p":10},
+{"w":["dünya","rahat","karar","direk","nehir","aktör"],"s":["d","k","a","e","r","n","i","r","r","a","h","a","i","e","a","ö","a","t","k","y","ü"],"p":10},
+{"w":["sehpa","dalga","kalça","sadık","helal","araba"],"s":["h","r","a","a","g","a","a","l","d","p","l","ı","a","a","e","b","k","s","a","ç","e"],"p":9},
+{"w":["kurul","nazik","iklim","kendi","rezil","lokum"],"s":["i","d","i","r","l","e","e","o","u","k","z","a","k","m","u","l","u","n","k","i","i"],"p":10},
+{"w":["çeşit","bakım","kiraz","çabuk","şeker","temiz"],"s":["ç","a","b","u","t","e","i","ı","m","a","k","r","a","z","e","e","k","i","e","ş","i"],"p":9},
+{"w":["siyah","burun","halim","sabah","yerel","hanım"],"s":["y","i","i","n","s","a","a","m","a","e","r","u","e","a","ı","h","u","a","l","h","b"],"p":10},
+{"w":["pasta","lokma","çanta","piliç","sakin","acaba"],"s":["p","a","i","m","o","a","t","c","l","i","k","a","n","ç","b","t","a","a","i","s","a"],"p":10},
+{"w":["fidan","kemer","torun","fakat","damar","narin"],"s":["r","e","a","a","n","a","f","r","k","e","m","d","u","i","i","t","a","o","n","a","a"],"p":10},
+{"w":["şifre","huzur","sokak","şahıs","fizik","evrak"],"s":["a","a","ı","i","i","u","ş","v","f","u","z","a","e","h","r","r","s","o","k","i","k"],"p":9},
+{"w":["köylü","silgi","pençe","kasap","yılan","ünite"],"s":["k","p","y","n","e","a","ı","a","g","e","l","t","i","ç","a","s","ü","ö","i","n","l"],"p":10},
+{"w":["bilek","yemiş","konuk","bıyık","liman","kaşık"],"s":["ş","i","a","l","k","y","ı","e","n","e","m","i","ı","k","a","b","o","i","k","u","ı"],"p":10},
+{"w":["mösyö","düğme","metre","modem","söğüt","ödeme"],"s":["m","m","o","r","ü","y","d","ö","ü","e","ğ","m","e","ö","m","ö","d","e","t","s","e"],"p":9},
+{"w":["aşırı","masal","tuzak","armut","ıssız","ıslak"],"s":["a","l","ı","a","r","a","t","s","m","a","s","z","a","u","u","ı","k","r","ş","ı","s"],"p":10},
+{"w":["barış","bakır","kutup","bebek","roket","şarap"],"s":["a","ı","r","b","ş","e","ı","k","r","a","k","p","u","e","e","b","t","a","a","o","u"],"p":10},
+{"w":["tuhaf","rapor","aşina","tarla","hepsi","fırça"],"s":["a","r","s","a","r","a","e","l","n","ı","p","o","t","ç","i","a","a","ş","h","f","u"],"p":10},
+{"w":["sıcak","tohum","nezle","satın","cihaz","kimse"],"s":["ı","i","k","s","e","a","i","a","c","o","h","s","u","ı","z","m","a","t","n","l","e"],"p":10},
+{"w":["köprü","zerre","kredi","kazak","perde","üzeri"],"s":["e","r","k","r","r","ö","ü","r","z","z","r","k","p","a","d","i","e","a","e","d","e"],"p":10},
+{"w":["çörek","lazım","katır","çelik","rozet","kömür"],"s":["i","ı","r","k","ö","r","e","o","l","a","z","e","m","ü","e","k","ç","a","ö","t","ı"],"p":10},
+{"w":["küçük","sınır","mermi","kasım","çınar","kirli"],"s":["e","k","ç","a","r","ı","ı","k","s","ü","n","ü","l","r","ı","i","m","ı","a","m","i"],"p":10},
+{"w":["böcek","likör","iptal","bilgi","ceket","kural"],"s":["p","c","g","l","k","e","i","e","l","b","k","u","r","ö","i","a","ö","e","t","a","i"],"p":10},
+{"w":["hasta","kağıt","minik","hüküm","soğan","antik"],"s":["n","s","i","ü","a","k","a","n","h","a","ğ","ı","t","k","i","i","o","m","ü","a","t"],"p":10},
+{"w":["demek","insan","ekran","daire","mısır","kanun"],"s":["k","e","a","i","ı","a","d","e","n","a","s","u","n","r","n","m","e","ı","k","a","r"],"p":10},
+{"w":["yavaş","saray","klişe","yasak","vergi","şöyle"],"s":["y","a","ö","v","e","y","a","a","a","i","r","g","ş","a","ş","a","k","l","s","l","e"],"p":10},
+{"w":["saçlı","buzul","ekmek","sebze","çözüm","ıslık"],"s":["k","ı","u","e","u","e","l","s","b","a","z","ı","s","ü","l","ç","z","k","m","e","ö"],"p":10},
+{"w":["teyit","peşin","kulak","topuk","yeşil","tanık"],"s":["i","e","p","y","k","t","e","t","i","e","ş","i","a","l","n","ı","k","a","u","u","o"],"p":9},
+{"w":["baskı","çamur","motor","biçim","simit","ısrar"],"s":["k","ç","s","r","u","r","o","s","ı","i","m","a","b","o","i","a","m","a","t","i","i"],"p":9},
+{"w":["basın","yürek","krema","büyük","serçe","nokta"],"s":["o","ü","r","ı","y","n","e","s","a","ü","r","e","ü","ç","k","a","t","b","e","m","k"],"p":10},
+{"w":["ördek","ücret","çoklu","ödünç","durak","kutlu"],"s":["e","k","d","n","k","u","ü","u","t","u","r","e","c","ö","o","d","ç","r","a","l","l"],"p":10},
+{"w":["frank","kalem","rehin","fikir","allah","keman"],"s":["f","e","i","n","m","i","a","k","e","a","l","a","e","k","i","r","r","a","h","n","l"],"p":10},
+{"w":["tablo","halat","akşam","tahta","buluş","ortam"],"s":["u","a","a","o","t","t","a","ş","h","m","l","a","u","l","b","a","r","k","a","a","t"],"p":10},
+{"w":["kavun","yarış","nisan","koyun","virüs","nişan"],"s":["u","i","v","n","a","i","i","ş","s","y","r","a","o","a","ü","a","n","u","ı","k","n"],"p":10},
+{"w":["çıkış","çorap","kukla","çiçek","kürek","şapka"],"s":["k","l","a","i","ç","a","ü","ç","ı","e","r","ı","o","e","k","k","p","u","k","ş","a"],"p":10},
+{"w":["sahne","sabun","idrak","sesli","haber","esnek"],"s":["u","e","e","r","a","e","a","s","s","l","b","n","d","a","n","i","h","e","s","a","k"],"p":9},
+{"w":["sayfa","radyo","elmas","sirke","yudum","anons"],"s":["f","s","r","m","a","l","a","s","k","a","d","y","o","y","u","u","e","n","a","n","i"],"p":10},
+{"w":["casus","değer","etkin","cadde","soğuk","sorun"],"s":["c","e","s","t","u","d","a","u","n","u","ğ","o","r","d","o","e","s","e","k","i","a"],"p":9},
+{"w":["bahçe","tuval","erzak","bütçe","havuz","eşlik"],"s":["ü","a","h","a","k","z","u","ş","t","ç","v","u","l","a","r","e","i","ç","b","a","e"],"p":9},
+{"w":["disko","seçim","aynen","dosya","sıçan","orman"],"s":["d","a","s","ı","y","o","a","i","o","e","ç","n","m","k","y","n","a","s","i","r","e"],"p":10},
+{"w":["gitar","yatak","talep","gayet","tatil","rakip"],"s":["t","i","l","a","i","a","k","t","a","i","t","a","a","r","e","y","a","a","p","e","g"],"p":9},
+{"w":["kablo","litre","çorba","kılıç","beter","opera"],"s":["r","a","r","r","l","ı","e","a","b","i","t","o","e","l","e","b","p","k","ı","o","ç"],"p":9},
+{"w":["havuç","dudak","flora","hedef","video","çıkma"],"s":["d","i","l","u","ç","a","u","o","v","e","d","a","a","e","ı","m","f","h","e","k","r"],"p":10},
+{"w":["hafta","kilit","yazım","hokey","filiz","astım"],"s":["t","t","f","a","i","y","i","o","k","a","l","i","z","e","ı","ı","s","h","m","i","a"],"p":9},
+{"w":["kahve","sayım","iplik","kısmi","hayal","etmek"],"s":["k","v","i","m","s","a","i","m","p","a","y","ı","e","h","a","a","t","e","l","ı","k"],"p":10},
+{"w":["örgüt","müzik","zalim","ölmez","güzel","takım"],"s":["a","ı","g","l","t","k","l","ü","ü","m","z","i","ü","e","m","ö","z","r","a","i","e"],"p":9}];
+
+const EXTRA = 5;
+const EPOCH = new Date(2026, 0, 1);
+const CELLS = [];
+for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (!(r % 2 && c % 2)) CELLS.push([r, c]);
+const AT = {}; CELLS.forEach(([r, c], k) => AT[r + "," + c] = k);
+const LINES = [0, 2, 4].map(r => [0, 1, 2, 3, 4].map(c => AT[r + "," + c]))
+  .concat([0, 2, 4].map(c => [0, 1, 2, 3, 4].map(r => AT[r + "," + c])));
+const STAR = '<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
+const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+
+const $ = s => document.querySelector(s);
+const up = s => s.toLocaleUpperCase("tr-TR");
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+let stats = store.get("gofret-stats", { played: 0, wins: 0, streak: 0, best: 0, lastWin: null, dist: [0, 0, 0, 0, 0, 0] });
+let mode, day, pid, P, sol, cur, used, total, over, won, sel = -1, busy = false;
+let elAt = [];   // pozisyon → kutu elemanı
+
+function dayIndex() {
+  const n = new Date();
+  return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
+}
+const dailyPid = d => ((d * 11 + 4) % PUZZLES.length + PUZZLES.length) % PUZZLES.length;
+function solution(w) {
+  const g = {};
+  [0, 2, 4].forEach((r, i) => [...w[i]].forEach((ch, c) => g[r + "," + c] = ch));
+  [0, 2, 4].forEach((c, i) => [...w[3 + i]].forEach((ch, r) => g[r + "," + c] = ch));
+  return CELLS.map(([r, c]) => g[r + "," + c]);
+}
+const stars = () => won ? Math.min(5, total - used) : 0;
+
+/* ---------- Renkler ---------- */
+function colors(state) {
+  const res = state.map((ch, k) => ch === sol[k] ? "correct" : "absent");
+  for (const line of LINES) {
+    const left = {};
+    line.forEach(k => { if (res[k] !== "correct") left[sol[k]] = (left[sol[k]] || 0) + 1; });
+    line.forEach(k => {
+      if (res[k] === "correct") return;
+      if (left[state[k]]) { left[state[k]]--; res[k] = "present"; }
+    });
+  }
+  return res;
+}
+
+/* ---------- DOM ---------- */
+const board = $("#board");
+function build() {
+  board.innerHTML = "";
+  board.classList.remove("done");
+  elAt = cur.map((ch, k) => {
+    const t = document.createElement("div");
+    t.className = "tile in";
+    t.style.setProperty("--d", k);
+    t.textContent = up(ch);
+    board.appendChild(t);
+    setTimeout(() => t.classList.remove("in"), 1000);
+    return t;
+  });
+  place();
+  paint();
+}
+function place() {
+  elAt.forEach((t, k) => { const [r, c] = CELLS[k]; t.style.gridArea = `${r + 1} / ${c + 1}`; t.dataset.k = k; });
+}
+function paint() {
+  const col = colors(cur);
+  elAt.forEach((t, k) => { t.dataset.s = col[k]; t.classList.toggle("sel", k === sel); });
+  const l = total - used;
+  $("#left").textContent = l;
+  $("#swaps").classList.toggle("low", !over && l <= 3);
+}
+
+/* ---------- Takas ---------- */
+function swap(a, b, fromA) {
+  if (a === b || over || busy) return;
+  const ra = fromA || elAt[a].getBoundingClientRect(), rb = elAt[b].getBoundingClientRect();
+  [cur[a], cur[b]] = [cur[b], cur[a]];
+  [elAt[a], elAt[b]] = [elAt[b], elAt[a]];
+  used++;
+  sel = -1;
+  place();
+  // FLIP
+  for (const [k, from] of [[a, rb], [b, ra]]) {
+    const t = elAt[k], to = t.getBoundingClientRect();
+    t.style.transition = "none";
+    t.style.transform = `translate(${from.left - to.left}px,${from.top - to.top}px)`;
+    void t.offsetWidth;
+    t.style.transition = "";
+    t.style.transform = "";
+  }
+  const lb = $("#left"); lb.classList.remove("bump"); void lb.offsetWidth; lb.classList.add("bump");
+  setTimeout(paint, 220);
+  if (cur.every((ch, k) => ch === sol[k])) { over = true; won = true; }
+  else if (used >= total) { over = true; won = false; }
+  save();
+  if (over) setTimeout(finish, 600);
+}
+
+/* Sürükle ya da dokun */
+let drag = null;
+const locked = k => cur[k] === sol[k];
+function tileAt(x, y, except) {
+  for (const el of document.elementsFromPoint(x, y)) {
+    if (el !== except && el.classList.contains("tile")) return +el.dataset.k;
+  }
+  return -1;
+}
+board.addEventListener("pointerdown", e => {
+  const t = e.target.closest(".tile");
+  if (!t || over || busy || isOpen()) return;
+  const k = +t.dataset.k;
+  if (locked(k)) return;
+  e.preventDefault();
+  board.setPointerCapture(e.pointerId);
+  drag = { k, x: e.clientX, y: e.clientY, moved: false, over: -1 };
+});
+board.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  const t = elAt[drag.k];
+  if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+  drag.moved = true;
+  t.classList.add("drag");
+  t.style.transform = `translate(${dx}px,${dy}px) scale(1.06)`;
+  const o = tileAt(e.clientX, e.clientY, t);
+  const target = o >= 0 && !locked(o) ? o : -1;
+  if (target !== drag.over) {
+    if (drag.over >= 0) elAt[drag.over].classList.remove("over");
+    if (target >= 0) elAt[target].classList.add("over");
+    drag.over = target;
+  }
+});
+function endDrag(e) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  const t = elAt[d.k];
+  if (d.over >= 0) elAt[d.over].classList.remove("over");
+  if (d.moved) {
+    // kutuyu bırakıldığı yerden geri ya da hedefe kaydır
+    const r = t.getBoundingClientRect();
+    t.classList.remove("drag");
+    t.style.transform = "";
+    if (d.over >= 0 && d.over !== d.k) swap(d.k, d.over, r);
+    return;
+  }
+  // dokunma
+  if (sel === -1) sel = d.k;
+  else if (sel === d.k) sel = -1;
+  else return swap(sel, d.k);
+  paint();
+}
+board.addEventListener("pointerup", endDrag);
+board.addEventListener("pointercancel", endDrag);
+
+/* ---------- Bitiş ---------- */
+async function finish() {
+  board.classList.add("done");
+  paint();
+  if (won) {
+    elAt.forEach((t, k) => { const [r, c] = CELLS[k]; t.style.setProperty("--d", r + c); t.classList.add("bounce"); });
+    toast(["Kıl payı!", "İyi iş!", "Güzel!", "Harika!", "Muhteşem!", "Kusursuz!"][stars()], 1900);
+  } else {
+    toast("Hamleniz kalmadı", 1600);
+    await wait(900);
+    revealSolution();
+  }
+  if (mode === "daily") record();
+  setTimeout(() => { if (!isOpen()) open("stats"); }, 1900);
+}
+function revealSolution() {
+  elAt.forEach((t, k) => {
+    if (cur[k] === sol[k]) return;
+    t.textContent = up(sol[k]);
+    t.classList.add("reveal");
+    t.style.setProperty("--d", k);
+  });
+}
+function record() {
+  stats.played++;
+  if (won) {
+    stats.wins++;
+    stats.dist[stars()]++;
+    stats.streak = stats.lastWin === day - 1 ? stats.streak + 1 : 1;
+    stats.best = Math.max(stats.best, stats.streak);
+    stats.lastWin = day;
+  } else stats.streak = 0;
+  store.set("gofret-stats", stats);
+}
+
+/* ---------- Oyun ---------- */
+function start(m, fresh = false) {
+  mode = m;
+  let s;
+  if (m === "daily") {
+    day = dayIndex();
+    pid = dailyPid(day);
+    s = store.get("gofret-daily", null);
+    if (!s || s.day !== day) s = null;
+  } else {
+    s = fresh ? null : store.get("gofret-practice", null);
+    if (s && !PUZZLES[s.pid]) s = null;
+    if (s) pid = s.pid;
+    else {
+      let p;
+      do p = Math.floor(Math.random() * PUZZLES.length); while (p === pid || p === dailyPid(dayIndex()));
+      pid = p;
+    }
+  }
+  P = PUZZLES[pid];
+  sol = solution(P.w);
+  total = P.p + EXTRA;
+  cur = s ? s.cur : [...P.s];
+  used = s ? s.used : 0;
+  sel = -1;
+  won = cur.every((ch, k) => ch === sol[k]);
+  over = won || used >= total;
+  save();
+  build();
+  if (over) { board.classList.add("done"); if (!won) revealSolution(); }
+  renderSub();
+  document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+}
+function save() {
+  if (mode === "daily") store.set("gofret-daily", { day, cur, used });
+  else store.set("gofret-practice", { pid, cur, used });
+}
+function renderSub() {
+  const sub = $("#sub");
+  if (mode === "daily") {
+    const date = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+    sub.innerHTML = `<span>${date}</span><span class="dot"></span><span>#${day + 1}</span>`;
+  } else {
+    sub.innerHTML = `<span>Pratik modu</span><button class="chip" id="newPz">Yeni gofret</button>`;
+    $("#newPz").onclick = () => start("practice", true);
+  }
+}
+
+/* ---------- İstatistik ---------- */
+function starRow(n) {
+  return `<div class="stars">${[0, 1, 2, 3, 4].map(i => STAR.replace("<svg", `<svg style="--d:${i}" class="${i < n ? "" : "off"}"`)).join("")}</div>`;
+}
+function renderStats() {
+  const today = dayIndex();
+  const streak = stats.lastWin !== null && stats.lastWin >= today - 1 ? stats.streak : 0;
+  $("#resultBox").innerHTML = over
+    ? `<div class="result">${won ? starRow(stars()) : ""}<p>${won ? `${used} hamlede çözdünüz` : "Bu sefer olmadı"}</p>
+       <div class="words">${P.w.map(w => `<span>${up(w)}</span>`).join("")}</div></div><h3>Genel</h3>`
+    : "";
+  $("#statNums").innerHTML = [[stats.played, "Oynanan"], [stats.played ? Math.round(stats.wins / stats.played * 100) : 0, "Kazanma %"], [streak, "Güncel Seri"], [stats.best, "En İyi Seri"]]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+  const max = Math.max(1, ...stats.dist);
+  const hl = mode === "daily" && won ? stars() : -1;
+  $("#dist").innerHTML = stats.dist.map((n, i) => ({ n, i })).reverse().map(({ n, i }) =>
+    `<div class="dr"><i>${i} yıldız</i><div class="db${i === hl ? " hl" : ""}" data-w="${Math.max(7, n / max * 100)}">${n}</div></div>`).join("");
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    document.querySelectorAll(".db").forEach((b, i) => { b.style.transitionDelay = i * 50 + "ms"; b.style.width = b.dataset.w + "%"; })));
+  const foot = $("#foot");
+  if (!over) { foot.innerHTML = ""; return; }
+  if (mode === "daily") {
+    foot.innerHTML = `<div><small>Sonraki gofret</small><div class="clock" id="clock"></div></div>
+      <button class="btn" id="shareBtn">${ICON_SHARE}Paylaş</button>`;
+    $("#shareBtn").onclick = share;
+    tick();
+  } else {
+    foot.innerHTML = `<div></div><button class="btn" id="againBtn">Yeni gofret</button>`;
+    $("#againBtn").onclick = () => { closeAll(); setTimeout(() => start("practice", true), 250); };
+  }
+}
+function tick() {
+  const el = $("#clock");
+  if (el) {
+    const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+    const s = Math.max(0, Math.floor((next - n) / 1000));
+    el.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":");
+  }
+  if (mode === "daily" && !drag && dayIndex() !== day) start("daily");
+}
+setInterval(tick, 1000);
+
+async function share() {
+  const col = colors(cur);
+  const sq = { correct: "🟩", present: "🟨", absent: "⬜" };
+  const rows = [];
+  for (let r = 0; r < 5; r++) {
+    let line = "";
+    for (let c = 0; c < 5; c++) { const k = AT[r + "," + c]; line += k === undefined ? "⬛" : sq[col[k]]; }
+    rows.push(line);
+  }
+  const text = `Gofret #${day + 1} ${won ? "⭐".repeat(stars()) || "✓" : "X"}${won ? ` (${stars()}/5)` : ""}\n\n${rows.join("\n")}`;
+  if (navigator.share && matchMedia("(pointer:coarse)").matches) {
+    try { await navigator.share({ text }); return; } catch {}
+  }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); }
+  catch { toast("Kopyalanamadı"); }
+}
+
+/* ---------- Toasts ---------- */
+function toast(msg, ms = 1400) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+
+/* ---------- Overlays ---------- */
+const scrim = $("#scrim"), drawer = $("#drawer");
+function isOpen() { return scrim.classList.contains("open"); }
+function closeAll() {
+  scrim.classList.remove("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  document.activeElement && document.activeElement.blur();
+}
+function open(id) {
+  const wasDrawer = drawer.classList.contains("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  if (id === "stats") renderStats();
+  scrim.classList.add("open");
+  setTimeout(() => $("#" + id).classList.add("open"), wasDrawer ? 180 : 0);
+}
+$("#menuBtn").onclick = () => { scrim.classList.add("open"); drawer.classList.add("open"); };
+scrim.onclick = closeAll;
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeAll(); }));
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"), c = e.target.closest("[data-close]"), md = e.target.closest("[data-mode]");
+  if (o) open(o.dataset.open);
+  else if (c) closeAll();
+  else if (md) { closeAll(); if (md.dataset.mode !== mode) setTimeout(() => start(md.dataset.mode), 200); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeAll(); });
+
+/* ---------- Boot ---------- */
+start("daily");
+if (!store.get("gofret-seen", false)) { store.set("gofret-seen", true); setTimeout(() => open("help"), 400); }
+</script>
+</body>
+</html>
