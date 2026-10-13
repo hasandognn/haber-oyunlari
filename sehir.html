@@ -118,9 +118,14 @@ function loadVideo() {
   const v = $("#video");
   v.querySelector("iframe")?.remove();
   $("#wait").classList.remove("off");
+  if (location.protocol === "file:") {   // YouTube, sayfanın adresini göremezse "Hata 153" verir
+    $("#wait").innerHTML = `<p style="margin:0 24px;text-align:center;line-height:1.5">Videolar dosyadan açılınca oynamaz.<br>Oyunu bir web sunucusu üzerinden açın.</p>`;
+    return;
+  }
   const f = document.createElement("iframe");
   const start = starts[round];
-  f.src = `https://www.youtube-nocookie.com/embed/${c.id}?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3&cc_load_policy=0&start=${start}&end=${start + 300}`;
+  f.src = `https://www.youtube-nocookie.com/embed/${c.id}?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3&cc_load_policy=0&start=${start}&end=${start + 300}&origin=${encodeURIComponent(location.origin)}`;
+  f.referrerPolicy = "strict-origin-when-cross-origin";   // site no-referrer kullansa da YouTube kaynağı görsün
   f.allow = "autoplay; encrypted-media; picture-in-picture";
   f.title = "Şehir videosu";
   f.onload = () => setTimeout(() => $("#wait").classList.add("off"), 2500);   // başlık kaybolana kadar bekle
