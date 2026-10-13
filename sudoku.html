@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Sudoku — Günlük Mini Sudoku</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+:root{--bs:min(400px, calc(100vw - 40px), calc(100dvh - 360px))}
+.sizes{display:flex;gap:6px}
+.grid{width:var(--bs);height:var(--bs);display:grid;border:2.5px solid var(--ink);border-radius:10px;overflow:hidden;background:var(--ink);gap:1px;user-select:none;-webkit-user-select:none}
+.c{background:#fff;display:grid;place-items:center;font-weight:600;cursor:pointer;color:#3c6aa3;transition:background-color .15s;position:relative}
+.c.given{color:var(--ink);font-weight:700;cursor:default}
+.c.br{box-shadow:inset -2px 0 0 var(--ink)}
+.c.bb{box-shadow:inset 0 -2px 0 var(--ink)}
+.c.br.bb{box-shadow:inset -2px 0 0 var(--ink),inset 0 -2px 0 var(--ink)}
+.c.peer{background:#f3f6fa}
+.c.same{background:#e2ebf7}
+.c.sel{background:#cfe0f5}
+.c.bad{color:var(--bad)}
+.c.bad::after{content:"";position:absolute;inset:3px;border-radius:6px;box-shadow:inset 0 0 0 2px rgba(217,101,75,.45)}
+.c.in{animation:pop .25s var(--ease)}
+.c .notes{position:absolute;inset:3px;display:grid;font-size:calc(var(--bs) / var(--n) * .2);color:var(--muted);font-weight:600;line-height:1}
+.c .notes i{font-style:normal;display:grid;place-items:center}
+.grid.won .c{animation:bounce .7s var(--ease) both;animation-delay:calc(var(--d) * 35ms)}
+.pad{width:var(--bs);display:grid;gap:8px}
+.pad button{height:52px;border:0;border-radius:12px;background:var(--key);font-size:22px;font-weight:600;cursor:pointer;transition:background-color .2s,transform .12s}
+.pad button:hover{background:var(--key-hover)}
+.pad button:active{transform:scale(.94)}
+.pad button.done{opacity:.35}
+.tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.tools .btn{padding:10px 16px;font-size:14px}
+.btn.ghost.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="sizes" id="sizes"><button class="chip" data-n="4">4×4</button><button class="chip" data-n="6">6×6</button></div>
+    <div class="status"><span class="clockbig" id="clock">0:00</span></div>
+    <div class="grid" id="grid"></div>
+    <div class="pad" id="pad"></div>
+    <div class="tools">
+      <button class="btn ghost" id="undoBtn">Geri al</button>
+      <button class="btn ghost" id="eraseBtn">Sil</button>
+      <button class="btn ghost" id="noteBtn">Not</button>
+      <button class="btn ghost" id="hintBtn">İpucu</button>
+    </div>
+  </main>
+</div>
+
+<script src="temel.js"></script>
+<script>
+const { $, store, toast } = T;
+T.kur({
+  ad: "Sudoku",
+  modDegisti: m => start(m, size, true),
+  yeni: () => start("practice", size, true), yeniEtiket: "Yeni bulmaca",
+  yardim: `<p>Her <b>satıra</b>, <b>sütuna</b> ve kalın çizgili <b>kutuya</b> rakamları birer kez yerleştirin.</p>
+    <ul><li><b>4×4</b>: 1–4 arası rakamlar, 2×2 kutular.</li><li><b>6×6</b>: 1–6 arası rakamlar, 2×3 kutular.</li>
+    <li>Bir kareye dokunup alttan rakam seçin. <b>Not</b> modunda küçük adaylar yazabilirsiniz.</li></ul>
+    <div class="hr"></div><p class="note">Her bulmacanın tek bir çözümü vardır. Çakışan rakamlar kırmızıyla gösterilir; ipucu süreye 15 saniye ekler.</p>`
+});
+
+let stats = store.get("sudoku-stats", { 4: { played: 0, best: null, total: 0 }, 6: { played: 0, best: null, total: 0 }, streak: 0, best: 0, lastDay: null });
+let size = store.get("sudoku-size", 4);
+let mode, day, N, BR, BC, sol, given, vals, notes, sel, noteMode = false, history, elapsed, startedAt, hints, won;
+
+/* ---------- Üretici ---------- */
+function boxOf(r, c) { return Math.floor(r / BR) * (N / BC) + Math.floor(c / BC); }
+function peers(a, b) {
+  const ra = Math.floor(a / N), ca = a % N, rb = Math.floor(b / N), cb = b % N;
+  return a !== b && (ra === rb || ca === cb || boxOf(ra, ca) === boxOf(rb, cb));
+}
+function ok(g, i, v) {
+  const r = Math.floor(i / N), c = i % N, b = boxOf(r, c);
+  for (let k = 0; k < N * N; k++) {
+    if (k === i || g[k] !== v) continue;
+    const rk = Math.floor(k / N), ck = k % N;
+    if (rk === r || ck === c || boxOf(rk, ck) === b) return false;
+  }
+  return true;
+}
+function fill(g, rand) {
+  const i = g.indexOf(0);
+  if (i < 0) return true;
+  for (const v of T.shuffle([...Array(N)].map((_, k) => k + 1), rand)) {
+    if (ok(g, i, v)) { g[i] = v; if (fill(g, rand)) return true; g[i] = 0; }
+  }
+  return false;
+}
+function count(g, limit = 2) {
+  const i = g.indexOf(0);
+  if (i < 0) return 1;
+  let n = 0;
+  for (let v = 1; v <= N && n < limit; v++) if (ok(g, i, v)) { g[i] = v; n += count(g, limit - n); g[i] = 0; }
+  return n;
+}
+function generate(n, rand) {
+  N = n; [BR, BC] = n === 4 ? [2, 2] : [2, 3];
+  const s = Array(N * N).fill(0);
+  fill(s, rand);
+  const p = s.slice();
+  // tek çözüm bozulmadan olabildiğince çok kare boşalt
+  for (const i of T.shuffle([...Array(N * N).keys()], rand)) {
+    const v = p[i]; p[i] = 0;
+    if (count(p.slice()) !== 1) p[i] = v;
+  }
+  return { sol: s, given: p };
+}
+
+/* ---------- Render ---------- */
+const grid = $("#grid");
+function build() {
+  grid.style.gridTemplateColumns = grid.style.gridTemplateRows = `repeat(${N},1fr)`;
+  grid.style.setProperty("--n", N);
+  grid.style.fontSize = `calc(var(--bs) / ${N} * .5)`;
+  grid.classList.remove("won");
+  grid.innerHTML = Array.from({ length: N * N }, (_, i) => {
+    const r = Math.floor(i / N), c = i % N;
+    const cls = [(c % BC === BC - 1 && c < N - 1) ? "br" : "", (r % BR === BR - 1 && r < N - 1) ? "bb" : ""].join(" ");
+    return `<div class="c ${cls}" data-i="${i}" style="--d:${r + c}"></div>`;
+  }).join("");
+  $("#pad").style.gridTemplateColumns = `repeat(${N},1fr)`;
+  $("#pad").innerHTML = Array.from({ length: N }, (_, k) => `<button data-v="${k + 1}">${k + 1}</button>`).join("");
+}
+function conflicts() {
+  const bad = new Set();
+  for (let i = 0; i < N * N; i++) if (vals[i] && !ok(vals, i, vals[i])) bad.add(i);
+  return bad;
+}
+function render(changed = -1) {
+  const bad = conflicts();
+  const sr = sel >= 0 ? Math.floor(sel / N) : -1, sc = sel % N, sb = sel >= 0 ? boxOf(sr, sc) : -1;
+  grid.querySelectorAll(".c").forEach((el, i) => {
+    const r = Math.floor(i / N), c = i % N;
+    el.classList.toggle("given", !!given[i]);
+    el.classList.toggle("sel", i === sel);
+    el.classList.toggle("peer", sel >= 0 && i !== sel && (r === sr || c === sc || boxOf(r, c) === sb));
+    el.classList.toggle("same", sel >= 0 && vals[sel] && vals[i] === vals[sel] && i !== sel);
+    el.classList.toggle("bad", bad.has(i));
+    el.classList.toggle("in", i === changed);
+    if (vals[i]) el.textContent = vals[i];
+    else if (notes[i] && notes[i].length) el.innerHTML = `<div class="notes" style="grid-template-columns:repeat(${BC},1fr)">${Array.from({ length: N }, (_, k) => `<i>${notes[i].includes(k + 1) ? k + 1 : ""}</i>`).join("")}</div>`;
+    else el.textContent = "";
+  });
+  const counts = Array(N + 1).fill(0);
+  vals.forEach(v => counts[v]++);
+  $("#pad").querySelectorAll("button").forEach(b => b.classList.toggle("done", counts[+b.dataset.v] >= N));
+  $("#noteBtn").classList.toggle("on", noteMode);
+  $("#undoBtn").disabled = !history.length || won;
+  ["#eraseBtn", "#noteBtn", "#hintBtn"].forEach(s => $(s).disabled = won);
+  document.querySelectorAll("#sizes .chip").forEach(b => b.classList.toggle("on", +b.dataset.n === N));
+}
+
+/* ---------- Etkileşim ---------- */
+grid.addEventListener("click", e => {
+  const el = e.target.closest(".c");
+  if (!el || won) return;
+  sel = +el.dataset.i;
+  tickStart();
+  render();
+});
+$("#pad").addEventListener("click", e => { const b = e.target.closest("button"); if (b) put(+b.dataset.v); });
+function put(v) {
+  if (won || sel < 0 || given[sel]) return;
+  tickStart();
+  history.push({ vals: vals.slice(), notes: notes.map(n => n ? n.slice() : n) });
+  if (noteMode && v) {
+    const n = notes[sel] || (notes[sel] = []);
+    const k = n.indexOf(v);
+    if (k >= 0) n.splice(k, 1); else n.push(v);
+    vals[sel] = 0;
+  } else {
+    vals[sel] = vals[sel] === v ? 0 : v;
+    notes[sel] = [];
+    // aynı satır/sütun/kutudaki notlardan bu rakamı düş
+    if (vals[sel]) for (let i = 0; i < N * N; i++) if (notes[i] && notes[i].includes(v) && peers(i, sel)) notes[i] = notes[i].filter(x => x !== v);
+  }
+  save();
+  render(sel);
+  check();
+}
+$("#eraseBtn").onclick = () => { if (sel >= 0 && !given[sel]) { history.push({ vals: vals.slice(), notes: notes.map(n => n ? n.slice() : n) }); vals[sel] = 0; notes[sel] = []; save(); render(); } };
+$("#noteBtn").onclick = () => { noteMode = !noteMode; render(); };
+$("#undoBtn").onclick = () => { const h = history.pop(); if (!h || won) return; vals = h.vals; notes = h.notes; save(); render(); };
+$("#hintBtn").onclick = () => {
+  if (won) return;
+  tickStart();
+  // seçili kare boş ya da yanlışsa onu, değilse ilk hatalı/boş kareyi düzelt
+  let i = sel >= 0 && !given[sel] && vals[sel] !== sol[sel] ? sel : vals.findIndex((v, k) => v !== sol[k]);
+  if (i < 0) return;
+  history.push({ vals: vals.slice(), notes: notes.map(n => n ? n.slice() : n) });
+  vals[i] = sol[i]; notes[i] = []; sel = i;
+  hints++; elapsed += 15;
+  toast("İpucu: +15 saniye");
+  save(); render(i); check();
+};
+document.addEventListener("keydown", e => {
+  if (T.isOpen() || won) return;
+  if (e.key >= "1" && e.key <= String(N)) put(+e.key);
+  else if (e.key === "Backspace" || e.key === "Delete" || e.key === "0") $("#eraseBtn").click();
+  else if (e.key === "n" || e.key === "N") $("#noteBtn").click();
+  else if (e.key.startsWith("Arrow") && sel >= 0) {
+    const r = Math.floor(sel / N), c = sel % N;
+    const [dr, dc] = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    sel = ((r + dr + N) % N) * N + (c + dc + N) % N; e.preventDefault(); render();
+  }
+});
+document.querySelectorAll("#sizes .chip").forEach(b => b.onclick = () => { if (+b.dataset.n !== N) start(mode, +b.dataset.n); });
+
+/* ---------- Süre ---------- */
+const now = () => elapsed + (startedAt ? (Date.now() - startedAt) / 1000 : 0);
+function tickStart() { if (!won && !startedAt) startedAt = Date.now(); }
+function tickStop() { if (startedAt) { elapsed += (Date.now() - startedAt) / 1000; startedAt = null; } }
+setInterval(() => { $("#clock").textContent = T.fmt(now()); }, 250);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { tickStop(); save(); } });
+
+/* ---------- Oyun ---------- */
+function check() {
+  if (vals.some((v, i) => v !== sol[i])) return;
+  tickStop();
+  won = true; sel = -1;
+  save(); render();
+  grid.classList.add("won");
+  if (mode === "daily") {
+    const st = stats[N];
+    st.played++; st.total += Math.round(elapsed);
+    st.best = st.best === null ? Math.round(elapsed) : Math.min(st.best, Math.round(elapsed));
+    T.seriGuncelle(stats, day, true);
+    store.set("sudoku-stats", stats);
+  }
+  toast(`Çözdünüz! ${T.fmt(elapsed)}`, 1900);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1400);
+}
+function key() { return mode === "daily" ? `sudoku-daily-${size}` : `sudoku-practice-${size}`; }
+function start(m, n = size, fresh = false) {
+  tickStop();
+  mode = m; size = n; store.set("sudoku-size", n);
+  day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(key(), null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  const rand = m === "daily" ? T.rng(day * 9973 + n * 31) : Math.random;
+  N = n; [BR, BC] = n === 4 ? [2, 2] : [2, 3];
+  if (!s) { const g = generate(n, rand); s = { sol: g.sol, given: g.given, vals: g.given.slice(), notes: [], elapsed: 0, hints: 0, won: false }; }
+  ({ sol, given, vals, elapsed, hints, won } = s);
+  notes = s.notes.length ? s.notes : Array(N * N).fill(null).map(() => []);
+  sel = -1; history = []; startedAt = null; noteMode = false;
+  save();
+  build();
+  render();
+  if (won) grid.classList.add("won");
+  T.altSatir(m, day, ["Yeni bulmaca", () => start("practice", size, true)], `${N}×${N}`);
+  T.aktifMod(m);
+}
+function save() { store.set(key(), { day, sol, given, vals, notes, elapsed: now(), hints, won }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => {
+  const s4 = stats[4], s6 = stats[6];
+  return `${won ? `<div class="result"><div class="big">${T.fmt(elapsed)}</div><p>${N}×${N} sudokuyu çözdünüz${hints ? ` · ${hints} ipucu` : ""}</p></div><h3>Genel</h3>` : ""}
+    ${T.sayilar([[s4.played + s6.played, "Çözülen"], [s4.best === null ? "–" : T.fmt(s4.best), "En İyi 4×4"], [s6.best === null ? "–" : T.fmt(s6.best), "En İyi 6×6"], [T.seri(stats), "Seri"]])}
+    ${T.altBolum({ gunluk: mode === "daily", bitti: won })}`;
+});
+T.paylasim(() => `Sudoku #${day + 1} · ${N}×${N} · ${T.fmt(elapsed)}${hints ? ` (${hints} ipucu)` : " · ipuçsuz"} ✅`);
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily", size);
+T.ilkZiyaret("sudoku-seen");
+</script>
+</body>
+</html>

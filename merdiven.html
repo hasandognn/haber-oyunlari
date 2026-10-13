@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Merdiven — Günlük Kelime Merdiveni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+:root{--t:min(46px, calc((100dvh - 540px) / 7 - 6px), calc((100vw - 120px) / 4))}
+main{gap:10px}
+.stage{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:center}
+.ladder{display:flex;flex-direction:column;gap:6px;position:relative}
+.row{display:flex;align-items:center;gap:8px;padding:3px 8px;border-radius:12px;cursor:pointer;transition:background-color .2s,transform .35s var(--ease);position:relative}
+.row .grip{width:18px;color:#c4c4bf;font-size:16px;text-align:center}
+.row.act{background:#eef3fa}
+.row.pick{background:#fbf3df;box-shadow:0 0 0 2px var(--warn)}
+.row.lock{cursor:default}
+.row.shake{animation:shake .45s var(--ease)}
+.tiles{display:flex;gap:5px}
+.tiles i{width:var(--t);height:var(--t);border-radius:8px;border:1.5px solid var(--line-strong);display:grid;place-items:center;font-style:normal;font-weight:700;font-size:calc(var(--t) * .5);background:#fff;transition:background-color .3s,border-color .3s,color .3s}
+.tiles i.typed{border-color:var(--ink)}
+.tiles i.hint{background:#fbf3df;border-color:var(--warn)}
+.row.done .tiles i{background:var(--ok);border-color:var(--ok);color:#fff}
+.row.end .tiles i{background:#3a3f47;border-color:#3a3f47;color:#fff}
+.row.end.hidden .tiles i{background:var(--soft);border:1.5px dashed var(--line-strong);color:transparent}
+.row.end.act .tiles i{background:#fff;border:1.5px solid var(--line-strong);color:var(--ink)}
+.row.end.act .tiles i.typed{border-color:var(--ink)}
+.row.end.done .tiles i{background:var(--ok);border-color:var(--ok);color:#fff}
+.link{position:absolute;right:-24px;top:calc(100% - 6px);width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;z-index:2}
+.link.ok{background:var(--ok);color:#fff}
+.link.no{background:var(--key);color:var(--muted)}
+.ladder.won .row .tiles i{animation:bounce .7s var(--ease) both;animation-delay:calc(var(--d) * 60ms)}
+.clue{width:100%;max-width:440px;min-height:52px;border-radius:12px;background:var(--soft);padding:10px 14px;font-size:15px;line-height:1.4;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.clue .btn{flex:none;padding:8px 14px;font-size:13px}
+.clue b{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block}
+.kb{width:100%;max-width:480px;display:flex;flex-direction:column;gap:6px;user-select:none;-webkit-user-select:none}
+.kr{display:flex;gap:4px;justify-content:center}
+.key{flex:1;max-width:40px;height:42px;border:0;border-radius:8px;background:var(--key);font-weight:600;font-size:15px;cursor:pointer;display:grid;place-items:center;padding:0;transition:transform .12s}
+.key:active{transform:scale(.93)}
+.key.wide{flex:1.6;max-width:64px;font-size:12px}
+.key svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.kb.off{opacity:.35;pointer-events:none}
+.demo{display:flex;flex-direction:column;gap:4px;margin:8px 0 12px;font-weight:700;letter-spacing:.2em;font-size:15px}
+.demo span{background:var(--soft);border-radius:7px;padding:4px 10px;width:max-content}
+.demo em{font-style:normal;color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="stage" id="stage"></div>
+    <div class="ladder" id="ladder"></div>
+    <div class="clue" id="clue"></div>
+    <div class="kb" id="kb"></div>
+  </main>
+</div>
+
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
+<script src="temel.js"></script>
+<script>
+const F = window.Filtre || { yasak: () => false, ileri: i => i };
+/* w: yukarıdan aşağı yedi kelime (komşular tek harfle ayrılır), c: her kelimenin ipucu */
+const PUZZLES = [{"w":["kamu","kamp","kalp","kale","hale","hele","hile"],"c":["Devlete ait olan; “___ kurumu”","Doğada çadırla konaklama","Kanı vücuda pompalayan organ","Futbolda golün atıldığı yer","Ayın çevresinde görülen ışık halkası","“Özellikle” anlamında söz: “___ bu sıcakta…”","Aldatmak için kurulan düzen"]},
+{"w":["doku","koku","konu","koyu","koru","soru","boru"],"c":["Aynı işi gören hücreler topluluğu","Burunla alınan","Bir yazının ya da konuşmanın ele aldığı mesele","Açığın karşıtı renk tonu","Küçük orman, ağaçlık","Cevap bekleyen cümle","İçinden su ya da gaz akan uzun silindir"]},
+{"w":["gemi","gezi","geri","seri","veri","beri","bari"],"c":["Denizde yolcu ve yük taşıyan büyük taşıt","Bir yeri görmek için yapılan yolculuk","İlerinin karşıtı","Art arda gelen bütün; dizi","Bilgisayarın işlediği bilgi","“O zamandan ___”","“Hiç değilse” anlamında söz"]},
+{"w":["ağaç","araç","amaç","aman","amin","emin","emir"],"c":["Gövdesi ve dalları olan uzun bitki","Taşıt","Ulaşılmak istenen hedef","“Eyvah” anlamında ünlem","Duanın sonunda söylenen söz","Kuşkusu olmayan","Buyruk"]},
+{"w":["çare","fare","fark","mark","park","para","papa"],"c":["Bir sıkıntıdan kurtulma yolu","Bilgisayarı yönlendiren aygıt; küçük kemirgen","İki şey arasındaki ayrım","Avrodan önceki Alman parası","Şehirdeki yeşil dinlenme alanı","Alışverişte kullanılan değer aracı","Katolik Kilisesi'nin lideri"]},
+{"w":["sırf","sıra","sara","yara","yasa","masa","maça"],"c":["Yalnızca, sadece","Okulda oturulan uzun masa; dizi","Epilepsinin halk arasındaki adı","Deride açılan zedelenme","Meclisin çıkardığı kanun","Üzerinde yemek yenen mobilya","İskambilde siyah, sivri uçlu renk"]},
+{"w":["kaya","kafa","kaba","kara","kasa","yasa","yaşa"],"c":["Büyük taş kütlesi","Baş","Nezaketsiz, ince olmayan","Siyah; denizin karşıtı","Paranın saklandığı kilitli dolap","Kanun","“Çok ___!” diye alkışlanır"]},
+{"w":["peki","peri","beri","biri","diri","dişi","dizi"],"c":["“Tamam” anlamında onay sözü","Masallarda kanatlı, büyülü varlık","“Sabahtan ___ bekliyorum”","Herhangi bir kimse","Canlı, ölü olmayan","Erkeğin karşıtı","Bölümler hâlinde yayınlanan televizyon yapımı"]},
+{"w":["çene","sene","sent","kent","kont","konu","koyu"],"c":["Yüzün en alt bölümü","Yıl","Doların yüzde biri","Şehir","Avrupa soylularında bir unvan","Haberin anlattığı mesele","“___ kahve”de olduğu gibi yoğun"]},
+{"w":["ilaç","ilan","plan","alan","alay","olay","onay"],"c":["Hastalığı iyileştiren madde","Gazetede yayınlanan duyuru","Yapılacakların önceden belirlendiği düzen","Belli sınırları olan yer; “oyun ___ı”","Biriyle dalga geçme","Meydana gelen durum, hadise","Kabul etme, tasdik"]}];
+const puzzleOk = i => !PUZZLES[i].w.some(w => F.yasak(w));
+const { $, store, toast } = T;
+const up = s => s.toLocaleUpperCase("tr-TR");
+const ALPHA = "abcçdefgğhıijklmnoöprsştuüvyz";
+const LAYOUT = ["ertyuıopğü", "asdfghjklşi", "+zcvbnmöç-"];
+T.kur({
+  ad: "Merdiven",
+  modDegisti: m => start(m, true),
+  yeni: () => start("practice", true), yeniEtiket: "Yeni merdiven",
+  yardim: `<p>Yedi kelimelik bir <b>merdiven</b> kurun: her basamak bir öncekinden <b>tek harfle</b> ayrılır.</p>
+    <div class="demo"><span>K<em>A</em>LE</span><span>K<em>A</em>L<em>P</em></span></div>
+    <ul><li><b>1.</b> Ortadaki beş kelimeyi ipuçlarından bulun. Bir satıra dokunup yazın.</li>
+    <li><b>2.</b> Bulduğunuz kelimeleri doğru sıraya dizin: iki satıra sırayla dokunarak yer değiştirin.</li>
+    <li><b>3.</b> Sıra doğru olunca en üst ve en alt basamağın kilidi açılır; onları da bulun.</li></ul>
+    <div class="hr"></div><p class="note">“Harf aç” seçili kelimenin bir harfini gösterir. Ne kadar az ipucu, o kadar iyi.</p>`
+});
+
+let stats = store.get("merdiven-stats", { played: 0, perfect: 0, streak: 0, best: 0, lastDay: null, totalTime: 0 });
+let mode, day, pid, P, order, solved, typed, shown, active, pick, stage, flip, hints, mistakes, elapsed, startedAt, won;
+// order: ekrandaki orta sıra (kelime indeksleri 1–5), stage: 1 bul, 2 sırala, 3 uçlar, 4 bitti
+
+const diff1 = (a, b) => [...a].filter((ch, i) => ch !== b[i]).length === 1;
+const topIdx = () => flip ? 6 : 0, botIdx = () => flip ? 0 : 6;
+
+/* ---------- Render ---------- */
+function rowHTML(w, opts) {
+  const word = P.w[w];
+  const letters = [...word].map((ch, k) => {
+    if (solved.includes(w)) return `<i>${up(ch)}</i>`;
+    const t = typed[w] || "";
+    if (t[k]) return `<i class="typed">${up(t[k])}</i>`;
+    if (k < shown[w]) return `<i class="hint">${up(ch)}</i>`;
+    return "<i></i>";
+  }).join("");
+  return `<div class="row ${opts.cls}" data-w="${w}" style="--d:${opts.d}"><span class="grip">${opts.grip || ""}</span><div class="tiles">${letters}</div>${opts.link || ""}</div>`;
+}
+function render() {
+  const rows = [topIdx(), ...order, botIdx()];
+  $("#ladder").innerHTML = rows.map((w, k) => {
+    const isEnd = k === 0 || k === 6;
+    const cls = [isEnd ? "end" : "", isEnd && stage < 3 ? "hidden" : "", solved.includes(w) ? "done" : "", w === active && stage !== 2 && !won ? "act" : "", w === pick ? "pick" : "", (isEnd && stage < 3) || solved.includes(w) && stage !== 2 ? "lock" : ""].join(" ");
+    let link = "";
+    if (stage === 2 && k >= 1 && k < 5) link = `<span class="link ${diff1(P.w[rows[k]], P.w[rows[k + 1]]) ? "ok" : "no"}">${diff1(P.w[rows[k]], P.w[rows[k + 1]]) ? "✓" : "·"}</span>`;
+    return rowHTML(w, { cls, d: k, grip: stage === 2 && !isEnd ? "⋮⋮" : "", link });
+  }).join("");
+  $("#ladder").classList.toggle("won", won);
+  $("#stage").textContent = won ? "Merdiven tamam!" : ["", "1 · Kelimeleri bulun", "2 · Doğru sıraya dizin", "3 · Uçları tamamlayın"][stage];
+  const c = $("#clue");
+  if (won) c.innerHTML = `<div><b>Tebrikler</b>${T.fmt(elapsed)} · ${hints} ipucu · ${mistakes} hata</div>`;
+  else if (stage === 2) c.innerHTML = `<div><b>İpucu</b>İki satıra sırayla dokunarak yerlerini değiştirin. Komşu kelimeler tek harfle ayrılmalı.</div>`;
+  else c.innerHTML = active >= 0 ? `<div><b>${active === topIdx() ? "En üst basamak" : active === botIdx() ? "En alt basamak" : "İpucu"}</b>${P.c[active]}</div>` : "";
+  if (!won) c.insertAdjacentHTML("beforeend", `<button class="btn ghost" id="hintBtn">${stage === 2 ? "Yerleştir" : "Harf aç"}</button>`);
+  const hb = $("#hintBtn"); if (hb) hb.onclick = hint;
+  $("#kb").classList.toggle("off", won || stage === 2);
+}
+$("#kb").innerHTML = LAYOUT.map(line => `<div class="kr">${[...line].map(ch => ch === "+" ? `<button class="key wide" data-k="enter">GİR</button>` : ch === "-" ? `<button class="key wide" data-k="back" aria-label="Sil"><svg viewBox="0 0 24 24"><path d="M9 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-6-6z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg></button>` : `<button class="key" data-k="${ch}">${up(ch)}</button>`).join("")}</div>`).join("");
+
+/* ---------- Etkileşim ---------- */
+$("#ladder").addEventListener("click", e => {
+  const row = e.target.closest(".row");
+  if (!row || won) return;
+  const w = +row.dataset.w;
+  tickStart();
+  if (stage === 2) {
+    if (w === 0 || w === 6) return;
+    if (pick < 0) { pick = w; render(); return; }
+    if (pick === w) { pick = -1; render(); return; }
+    swap(pick, w); pick = -1; return;
+  }
+  if (row.classList.contains("lock") || solved.includes(w)) return;
+  active = w; render();
+});
+function swap(a, b) {
+  const rows = [...document.querySelectorAll("#ladder .row")];
+  const before = new Map(rows.map(r => [r.dataset.w, r.getBoundingClientRect().top]));
+  const ia = order.indexOf(a), ib = order.indexOf(b);
+  [order[ia], order[ib]] = [order[ib], order[ia]];
+  save(); render();
+  // FLIP: satırlar eski yerlerinden kayarak gelsin
+  document.querySelectorAll("#ladder .row").forEach(r => {
+    const t0 = before.get(r.dataset.w); if (t0 === undefined) return;
+    const dy = t0 - r.getBoundingClientRect().top; if (!dy) return;
+    r.style.transition = "none"; r.style.transform = `translateY(${dy}px)`;
+    void r.offsetWidth; r.style.transition = ""; r.style.transform = "";
+  });
+  checkOrder();
+}
+$("#kb").addEventListener("mousedown", e => e.preventDefault());
+$("#kb").addEventListener("click", e => { const b = e.target.closest(".key"); if (b) press(b.dataset.k); });
+document.addEventListener("keydown", e => {
+  if (T.isOpen() || e.metaKey || e.ctrlKey) return;
+  if (e.key === "Enter") { e.preventDefault(); press("enter"); }
+  else if (e.key === "Backspace") { e.preventDefault(); press("back"); }
+  else if (e.key.length === 1) { const k = e.key.toLocaleLowerCase("tr-TR"); if (ALPHA.includes(k)) press(k); }
+});
+function press(k) {
+  if (won || stage === 2 || active < 0 || solved.includes(active)) return;
+  tickStart();
+  const L = P.w[active].length;
+  let t = typed[active] || "";
+  // ipucuyla açılan harfler yazılmış sayılır
+  if (!t && shown[active]) t = P.w[active].slice(0, shown[active]);
+  if (k === "back") t = t.length > shown[active] ? t.slice(0, -1) : t;
+  else if (k === "enter") return submit();
+  else if (t.length < L) t += k;
+  typed[active] = t;
+  save(); render();
+}
+function submit() {
+  const w = active, t = typed[w] || "";
+  if (t.length < P.w[w].length) { shakeRow(w); return toast("Kelimeyi tamamlayın"); }
+  if (t === P.w[w]) {
+    solved.push(w); typed[w] = "";
+    toast("Doğru!");
+    nextActive();
+  } else {
+    mistakes++; typed[w] = ""; shakeRow(w);
+    toast("Olmadı");
+  }
+  save(); render();
+}
+function shakeRow(w) { const r = document.querySelector(`.row[data-w="${w}"]`); if (r) { r.classList.remove("shake"); void r.offsetWidth; r.classList.add("shake"); } }
+function nextActive() {
+  if (stage === 1) {
+    const left = order.filter(w => !solved.includes(w));
+    if (left.length) { active = left[0]; return; }
+    stage = 2; active = -1; pick = -1;
+    toast("Şimdi doğru sıraya dizin", 1800);
+    checkOrder();
+  } else if (stage === 3) {
+    const left = [topIdx(), botIdx()].filter(w => !solved.includes(w));
+    if (left.length) { active = left[0]; return; }
+    finish();
+  }
+}
+function checkOrder() {
+  const ladder = order.every((w, k) => k === 0 || diff1(P.w[order[k - 1]], P.w[w]));
+  if (!ladder) return;
+  const fwd = order.join() === "1,2,3,4,5", rev = order.join() === "5,4,3,2,1";
+  if (!fwd && !rev) return;     // tek harfle bağlı ama uçlara uymayan başka bir sıra
+  flip = rev; stage = 3; pick = -1; active = topIdx();
+  toast("Sıra doğru! Uçlar açıldı", 1700);
+  save(); render();
+}
+function hint() {
+  if (won) return;
+  tickStart();
+  hints++;
+  if (stage === 2) {
+    // ilk yanlış yerdeki kelimeyi doğru yerine getir
+    const want = [1, 2, 3, 4, 5];
+    const k = order.findIndex((w, i) => w !== want[i]);
+    if (k >= 0) swap(order[k], want[k]);
+    return;
+  }
+  if (active < 0) return;
+  shown[active] = Math.min(P.w[active].length, shown[active] + 1);
+  typed[active] = P.w[active].slice(0, shown[active]);
+  if (shown[active] >= P.w[active].length) { solved.push(active); typed[active] = ""; nextActive(); }
+  save(); render();
+}
+
+/* ---------- Süre ---------- */
+const now = () => elapsed + (startedAt ? (Date.now() - startedAt) / 1000 : 0);
+function tickStart() { if (!won && !startedAt) startedAt = Date.now(); }
+function tickStop() { if (startedAt) { elapsed += (Date.now() - startedAt) / 1000; startedAt = null; } }
+document.addEventListener("visibilitychange", () => { if (document.hidden) { tickStop(); save(); } });
+
+/* ---------- Oyun ---------- */
+function finish() {
+  tickStop(); won = true; stage = 4; active = -1;
+  save(); render();
+  if (mode === "daily") {
+    stats.played++; stats.totalTime += Math.round(elapsed);
+    if (!hints && !mistakes) stats.perfect++;
+    T.seriGuncelle(stats, day, true);
+    store.set("merdiven-stats", stats);
+  }
+  toast(hints || mistakes ? "Merdiven tamam!" : "Kusursuz merdiven!", 1900);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1500);
+}
+function start(m, fresh = false) {
+  tickStop();
+  mode = m; day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(`merdiven-${m}`, null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (s && (!PUZZLES[s.pid] || !puzzleOk(s.pid))) s = null;
+  if (!s) {
+    const n = PUZZLES.length;
+    const p = m === "daily" ? F.ileri(((day * 3 + 1) % n + n) % n, n, puzzleOk) : (F.rastgele ? F.rastgele(n, puzzleOk, pid) : Math.floor(Math.random() * n));
+    const rand = m === "daily" ? T.rng(day * 131 + 7) : Math.random;
+    let ord;
+    do ord = T.shuffle([1, 2, 3, 4, 5], rand); while (ord.join() === "1,2,3,4,5" || ord.join() === "5,4,3,2,1");
+    s = { pid: p, order: ord, solved: [], typed: {}, shown: [0, 0, 0, 0, 0, 0, 0], stage: 1, flip: false, hints: 0, mistakes: 0, elapsed: 0, won: false, active: ord[0] };
+  }
+  ({ pid, order, solved, typed, shown, stage, flip, hints, mistakes, elapsed, won, active } = s);
+  P = PUZZLES[pid]; pick = -1; startedAt = null;
+  save(); render();
+  T.altSatir(m, day, ["Yeni merdiven", () => start("practice", true)]);
+  T.aktifMod(m);
+}
+function save() { store.set(`merdiven-${mode}`, { day, pid, order, solved, typed, shown, stage, flip, hints, mistakes, elapsed: now(), won, active }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${won ? `<div class="result"><div class="big">${T.fmt(elapsed)}</div><p>${hints} ipucu · ${mistakes} hata</p></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats.played, "Tamamlanan"], [stats.perfect, "Kusursuz"], [stats.played ? T.fmt(stats.totalTime / stats.played) : "–", "Ort. Süre"], [T.seri(stats), "Seri"]])}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: won })}`);
+T.paylasim(() => `Merdiven #${day + 1} 🪜 ${T.fmt(elapsed)}${hints ? ` · ${hints} ipucu` : ""}${mistakes ? ` · ${mistakes} hata` : ""}${!hints && !mistakes ? " · kusursuz" : ""}`);
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily");
+T.ilkZiyaret("merdiven-seen");
+</script>
+</body>
+</html>

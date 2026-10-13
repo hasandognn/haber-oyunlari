@@ -56,6 +56,8 @@ const oyunlar = [
     bulmacalar: literal(read("kodadi.html"), "BOARDS").map(b => [...b.w, ...b.c.map(c => c.c)]) },
   { id: "tahta", ad: "Mini Tahta", tur: "liste", not: "Yasaklı kelime tahtaya yazılamaz ve başlangıç kelimesi olamaz.",
     kelimeler: literal(read("tahta.html"), "DICT").split(" ") },
+  { id: "merdiven", ad: "Merdiven", tur: "bulmaca", not: "Yasaklı kelime içeren merdiven gösterilmez.",
+    bulmacalar: literal(read("merdiven.html"), "PUZZLES").map(p => p.w) },
 ];
 const out = `/* Otomatik üretildi: node araclar/panel-veri.mjs — elle düzenlemeyin. */\nwindow.PANEL_VERI = ${JSON.stringify({ uretildi: new Date().toISOString().slice(0, 10), oyunlar })};\n`;
 fs.writeFileSync(path.join(ROOT, "panel-veri.js"), out);

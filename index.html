@@ -21,7 +21,7 @@ h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(30px,5vw,4
 .lead{color:var(--muted);font-size:16px;margin:0 0 36px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
 .card{display:flex;flex-direction:column;gap:14px;padding:22px;border:1px solid var(--line);border-radius:18px;text-decoration:none;color:inherit;background:#fff;
-  opacity:0;transform:translateY(10px);animation:in .6s var(--ease) forwards;animation-delay:calc(var(--i) * 70ms);
+  opacity:0;transform:translateY(10px);animation:in .6s var(--ease) forwards;animation-delay:calc(min(var(--i), 8) * 60ms);
   transition:border-color .3s var(--ease),box-shadow .4s var(--ease),transform .4s var(--ease)}
 a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);transform:translateY(-3px)}
 .card.soon{color:var(--muted)}
@@ -76,6 +76,15 @@ a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);tran
 .mt7{display:grid;grid-template-columns:repeat(5,20px);gap:3px}
 .mt7 i{width:20px;height:20px;border-radius:4px;background:#f6f3ea;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700}
 .mt7 i.t{background:#f3dfae;box-shadow:inset 0 -2px 0 #d9bf84}
+.mini4{display:grid;gap:3px}
+.mini4 i{width:20px;height:20px;border-radius:4px;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700;background:#fff;border:1px solid #d9d9d4}
+.mini4 i.k{background:#3a3f47;border-color:#3a3f47;color:#fff}
+.mini4 i.f{background:#2f3a4a;border-color:#2f3a4a}
+.mini4 i.g{background:#6aa780;border-color:#6aa780;color:#fff}
+.mini4 i.p{background:#c98bc5;border-color:#c98bc5;color:#fff}
+.mini4 i.a{background:#9da1a6;border-color:#9da1a6;color:#fff}
+.dots4{display:flex;gap:6px}
+.dots4 i{width:22px;height:22px;border-radius:50%}
 @keyframes in{to{opacity:1;transform:none}}
 </style>
 </head>
@@ -188,6 +197,57 @@ a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);tran
       <span class="tag live">Oyna</span>
       <h2>Mini Tahta</h2>
       <p>Küçük tahtada 5 turda en yüksek kelime puanını toplayın.</p>
+    </a>
+    <a class="card" href="merdiven.html" style="--i:19">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(4,20px)"><i class="g">K</i><i class="g">A</i><i class="g">L</i><i class="g">E</i><i class=""> </i><i class=""> </i><i class=""> </i><i class=""> </i><i class="g">K</i><i class="g">A</i><i class="g">L</i><i class="g">P</i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Merdiven</h2>
+      <p>İpuçlarını çözüp kelimeleri tek harf farkla basamak basamak dizin.</p>    </a>
+    <a class="card" href="sudoku.html" style="--i:20">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(4,20px)"><i>1</i><i>3</i><i>4</i><i>2</i><i>4</i><i>2</i><i>1</i><i>3</i><i>2</i><i>4</i><i>3</i><i>1</i><i>3</i><i>1</i><i>2</i><i>4</i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Sudoku</h2>
+      <p>4×4 ve 6×6 boyutlarında hızlı çözülen klasik sayı bulmacası.</p>    </a>
+    <a class="card" href="denklem.html" style="--i:21">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(8,20px)"><i class="g">1</i><i class="a">2</i><i class="g">+</i><i class="g">3</i><i class="p">5</i><i class="g">=</i><i class="a">4</i><i class="g">7</i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Denklem</h2>
+      <p>Gizli eşitliği 6 denemede bulun: sayılarla Wordle.</p>    </a>
+    <a class="card" href="kafes.html" style="--i:22">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(4,20px)"><i></i><i>3</i><i></i><i>1</i><i>4</i><i></i><i>2</i><i></i><i></i><i>1</i><i></i><i>4</i><i>2</i><i></i><i>3</i><i></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Kafes</h2>
+      <p>Dört işlemli kafeslere göre ızgarayı rakamlarla doldurun.</p>    </a>
+    <a class="card" href="toplam.html" style="--i:23">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(4,20px)"><i class="k"></i><i class="k"></i><i class="k"></i><i class="k"></i><i class="k"></i><i class="">4</i><i class="">2</i><i class=""></i><i class="k"></i><i class="">1</i><i class="">3</i><i class=""></i><i class="k"></i><i class="">2</i><i class=""></i><i class=""></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Toplam</h2>
+      <p>Verilen toplamlara göre rakamları yerleştirin (Kakuro).</p>    </a>
+    <a class="card" href="piksel.html?n=10" style="--i:24">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(5,20px)"><i class=""></i><i class="f"></i><i class=""></i><i class="f"></i><i class=""></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class=""></i><i class="f"></i><i class="f"></i><i class="f"></i><i class=""></i><i class=""></i><i class=""></i><i class="f"></i><i class=""></i><i class=""></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Piksel</h2>
+      <p>Kenardaki sayılara göre boyayın, gizli resmi ortaya çıkarın.</p>    </a>
+    <a class="card" href="2048.html" style="--i:25">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(4,20px)"><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i><i style="background:#f2c48d;border-color:#f2c48d;color:#fff">8</i><i style="background:#efa56b;border-color:#efa56b;color:#fff">16</i><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i><i style="background:#ec8a5f;border-color:#ec8a5f;color:#fff">32</i><i style="background:#e66a48;border-color:#e66a48;color:#fff">64</i><i style="background:#efe6cf;border-color:#efe6cf;color:#fff"></i><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i><i style="background:#ead27a;border-color:#ead27a;color:#fff">128</i><i style="background:#efe6cf;border-color:#efe6cf;color:#fff"></i><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i><i style="background:#6aa780;border-color:#6aa780;color:#fff;font-size:7.5px">2048</i><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i><i style="background:#f3eee3;border-color:#f3eee3;color:#fff"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>2048</h2>
+      <p>Aynı sayıları kaydırıp birleştirin, 2048'e ulaşın.</p>    </a>
+    <a class="card" href="kopru.html" style="--i:26">
+      <div class="art"><svg width="96" height="66" viewBox="0 0 96 66"><line x1="14" y1="14" x2="82" y2="14" stroke="#2f4a63" stroke-width="3"/><line x1="14" y1="14" x2="14" y2="52" stroke="#2f4a63" stroke-width="3"/><line x1="80" y1="16" x2="80" y2="52" stroke="#2f4a63" stroke-width="2"/><line x1="84" y1="16" x2="84" y2="52" stroke="#2f4a63" stroke-width="2"/><circle cx="14" cy="14" r="10" fill="#fff" stroke="#2f4a63" stroke-width="2"/><text x="14" y="18.5" font-size="12" font-weight="700" text-anchor="middle" fill="#2f4a63">2</text><circle cx="82" cy="14" r="10" fill="#fff" stroke="#2f4a63" stroke-width="2"/><text x="82" y="18.5" font-size="12" font-weight="700" text-anchor="middle" fill="#2f4a63">3</text><circle cx="14" cy="52" r="10" fill="#fff" stroke="#2f4a63" stroke-width="2"/><text x="14" y="56.5" font-size="12" font-weight="700" text-anchor="middle" fill="#2f4a63">1</text><circle cx="82" cy="52" r="10" fill="#fff" stroke="#2f4a63" stroke-width="2"/><text x="82" y="56.5" font-size="12" font-weight="700" text-anchor="middle" fill="#2f4a63">2</text></svg></div>
+      <span class="tag live">Oyna</span>
+      <h2>Köprü</h2>
+      <p>Adaları üzerlerindeki sayı kadar köprüyle birbirine bağlayın.</p>    </a>
+    <a class="card" href="piksel.html?n=5" style="--i:27">
+      <div class="art"><div class="mini4" style="grid-template-columns:repeat(5,20px)"><i class="f"></i><i class=""></i><i class="f"></i><i class=""></i><i class="f"></i><i class=""></i><i class="f"></i><i class="f"></i><i class="f"></i><i class=""></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class=""></i><i class="f"></i><i class="f"></i><i class="f"></i><i class=""></i><i class=""></i><i class="f"></i><i class="f"></i><i class="f"></i><i class=""></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Mini Piksel</h2>
+      <p>Bir dakikada çözülen 5×5 piksel bulmacası.</p>    </a>
+    <a class="card" href="sifre.html" style="--i:28">
+      <div class="art"><div class="dots4"><i style="background:#e2604a"></i><i style="background:#e8c53d"></i><i style="background:#4f8fd6"></i><i style="background:#5daa6f"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Şifre</h2>
+      <p>Gizli renk şifresini ipuçlarına göre 10 denemede çözün.</p>
     </a>
   </div>
 </main>

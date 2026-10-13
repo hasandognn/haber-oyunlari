@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Toplam — Günlük Kakuro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+:root{--bs:min(420px, calc(100vw - 32px), calc(100dvh - 380px))}
+.sizes{display:flex;gap:6px}
+.grid{width:var(--bs);height:var(--bs);display:grid;gap:2px;background:#d9d9d4;border:2px solid #3a3f47;border-radius:8px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.k{position:relative;background:#3a3f47;color:#fff;font-weight:700}
+.k.clue{background:linear-gradient(to top right,#3a3f47 calc(50% - .6px),#6b7079 50%,#3a3f47 calc(50% + .6px))}
+.k .a,.k .d{position:absolute;font-size:calc(var(--bs) / var(--n) * .27);line-height:1}
+.k .a{right:4px;top:3px}
+.k .d{left:4px;bottom:3px}
+.k .bad{color:#ffb4a3}
+.k .ok{color:#b9e3c5}
+.c{position:relative;background:#fff;display:grid;place-items:center;cursor:pointer;font-weight:600;color:#3c6aa3;font-size:calc(var(--bs) / var(--n) * .5);transition:background-color .15s}
+.c.peer{background:#f3f6fa}
+.c.sel{background:#cfe0f5}
+.c.bad{color:var(--bad)}
+.c.in{animation:pop .25s var(--ease)}
+.c .notes{position:absolute;inset:2px;display:grid;grid-template-columns:repeat(3,1fr);font-size:calc(var(--bs) / var(--n) * .19);color:var(--muted);line-height:1}
+.c .notes i{font-style:normal;display:grid;place-items:center}
+.grid.won .c{animation:bounce .7s var(--ease) both;animation-delay:calc(var(--d) * 35ms)}
+.pad{width:var(--bs);display:grid;grid-template-columns:repeat(9,1fr);gap:5px}
+.pad button{height:48px;border:0;border-radius:10px;background:var(--key);font-size:20px;font-weight:600;cursor:pointer;transition:background-color .2s,transform .12s}
+.pad button:active{transform:scale(.93)}
+.pad button.no{opacity:.3}
+.tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.tools .btn{padding:10px 16px;font-size:14px}
+.btn.ghost.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.demo{display:grid;grid-template-columns:repeat(3,48px);gap:2px;background:#d9d9d4;width:max-content;border:2px solid #3a3f47;margin:10px 0}
+.demo i{width:48px;height:48px;display:grid;place-items:center;font-style:normal;font-weight:700;font-size:19px;color:#3c6aa3;background:#fff;position:relative}
+.demo i.k{background:#3a3f47;color:#fff;font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="sizes" id="sizes"><button class="chip" data-n="6">Kolay</button><button class="chip" data-n="7">Zor</button></div>
+    <div class="status"><span class="clockbig" id="clock">0:00</span></div>
+    <div class="grid" id="grid"></div>
+    <div class="pad" id="pad"></div>
+    <div class="tools">
+      <button class="btn ghost" id="undoBtn">Geri al</button>
+      <button class="btn ghost" id="eraseBtn">Sil</button>
+      <button class="btn ghost" id="noteBtn">Not</button>
+      <button class="btn ghost" id="hintBtn">İpucu</button>
+    </div>
+  </main>
+</div>
+
+<script src="temel.js"></script>
+<script>
+/* w,h: boyut, s: çözüm (0 = siyah kare), r: toplam sıraları [ilk hücre, yatay mı, uzunluk, toplam] */
+const PUZZLES = [{"w":6,"h":6,"s":"000000000031000926005700016849039053","r":[[10,1,2,4],[15,1,3,17],[20,1,2,12],[25,1,5,28],[31,1,2,12],[34,1,2,8],[25,0,2,4],[20,0,3,20],[15,0,3,24],[10,0,2,5],[28,0,2,9],[11,0,2,7],[29,0,2,12]]},
+{"w":6,"h":6,"s":"000000000890032751017068008130000580","r":[[9,1,2,17],[13,1,5,18],[19,1,2,8],[22,1,2,14],[26,1,3,12],[33,1,2,13],[13,0,2,4],[14,0,3,17],[9,0,2,15],[27,0,2,6],[10,0,5,31],[17,0,2,9]]},
+{"w":6,"h":6,"s":"000000039057016018001340062589024067","r":[[7,1,2,12],[10,1,2,12],[13,1,2,7],[16,1,2,9],[20,1,3,8],[25,1,5,30],[31,1,2,6],[34,1,2,13],[7,0,2,4],[25,0,2,8],[8,0,5,22],[21,0,2,8],[10,0,5,24],[11,0,2,15],[29,0,2,16]]},
+{"w":6,"h":6,"s":"000000004100007230076029098245009700","r":[[8,1,2,5],[14,1,3,12],[19,1,2,13],[22,1,2,11],[25,1,5,28],[32,1,2,16],[19,0,2,16],[8,0,5,34],[9,0,2,3],[27,0,2,9],[16,0,3,9],[23,0,2,14]]},
+{"w":6,"h":6,"s":"000000097000059400003680046095032053","r":[[7,1,2,16],[13,1,3,18],[20,1,3,17],[25,1,2,10],[28,1,2,14],[31,1,2,5],[34,1,2,8],[7,0,2,14],[25,0,2,7],[8,0,5,27],[15,0,2,10],[22,0,3,22],[29,0,2,8]]},
+{"w":6,"h":6,"s":"000000057083023062002410079631016057","r":[[7,1,2,12],[10,1,2,11],[13,1,2,5],[16,1,2,8],[20,1,3,7],[25,1,5,26],[31,1,2,7],[34,1,2,12],[7,0,2,7],[25,0,2,8],[8,0,5,27],[21,0,2,10],[10,0,5,23],[11,0,2,5],[29,0,2,8]]},
+{"w":6,"h":6,"s":"000000045000093700000180019258058069","r":[[7,1,2,9],[13,1,3,19],[21,1,2,9],[25,1,5,25],[31,1,2,13],[34,1,2,15],[7,0,2,13],[25,0,2,6],[8,0,2,8],[26,0,2,17],[15,0,3,10],[22,0,3,19],[29,0,2,17]]},
+{"w":6,"h":6,"s":"000000009240087136015018004100008300","r":[[8,1,3,15],[13,1,5,25],[19,1,2,6],[22,1,2,9],[26,1,2,5],[32,1,2,11],[13,0,2,9],[8,0,5,33],[9,0,2,3],[27,0,2,4],[10,0,3,8],[17,0,2,14]]},
+{"w":6,"h":6,"s":"000000003200079450081021005413007900","r":[[8,1,2,5],[13,1,4,25],[19,1,2,9],[22,1,2,3],[26,1,4,13],[32,1,2,16],[13,0,2,15],[8,0,5,25],[9,0,2,6],[27,0,2,13],[16,0,3,8],[23,0,2,4]]},
+{"w":6,"h":6,"s":"000000054029031037005210098467072049","r":[[7,1,2,9],[10,1,2,11],[13,1,2,4],[16,1,2,10],[20,1,3,8],[25,1,5,34],[31,1,2,9],[34,1,2,13],[7,0,2,8],[25,0,2,16],[8,0,5,20],[21,0,2,6],[10,0,5,16],[11,0,2,16],[29,0,2,16]]},
+{"w":6,"h":6,"s":"000000006800004900042041098673079300","r":[[8,1,2,14],[14,1,2,13],[19,1,2,6],[22,1,2,5],[25,1,5,33],[31,1,3,19],[19,0,3,20],[8,0,5,29],[9,0,2,17],[27,0,2,9],[22,0,2,11],[23,0,2,4]]},
+{"w":6,"h":6,"s":"000000036087021024002710038967057035","r":[[7,1,2,9],[10,1,2,15],[13,1,2,3],[16,1,2,6],[20,1,3,10],[25,1,5,33],[31,1,2,12],[34,1,2,8],[7,0,2,5],[25,0,2,8],[8,0,5,24],[21,0,2,16],[10,0,5,20],[11,0,2,11],[29,0,2,12]]},
+{"w":6,"h":6,"s":"000000043100092483000371014250039700","r":[[7,1,3,8],[13,1,5,26],[21,1,3,11],[25,1,4,12],[31,1,3,19],[7,0,2,13],[25,0,2,4],[8,0,2,5],[26,0,2,13],[9,0,5,17],[16,0,3,20],[17,0,2,4]]},
+{"w":6,"h":6,"s":"000000084096097865003100089526096048","r":[[7,1,2,12],[10,1,2,15],[13,1,5,35],[20,1,2,4],[25,1,5,30],[31,1,2,15],[34,1,2,12],[7,0,2,17],[25,0,2,17],[8,0,5,29],[15,0,3,14],[10,0,2,15],[28,0,2,6],[11,0,2,11],[29,0,2,14]]},
+{"w":6,"h":6,"s":"000000094078051926006710052031097058","r":[[7,1,2,13],[10,1,2,15],[13,1,5,23],[20,1,3,14],[25,1,2,7],[28,1,2,4],[31,1,2,16],[34,1,2,13],[7,0,2,14],[25,0,2,14],[8,0,5,20],[15,0,2,16],[10,0,5,18],[11,0,2,14],[29,0,2,9]]},
+{"w":6,"h":6,"s":"000000038042024186005260073097042059","r":[[7,1,2,11],[10,1,2,6],[13,1,5,21],[20,1,3,13],[25,1,2,10],[28,1,2,16],[31,1,2,6],[34,1,2,14],[7,0,2,5],[25,0,2,11],[8,0,5,22],[15,0,2,3],[10,0,5,32],[11,0,2,8],[29,0,2,16]]},
+{"w":6,"h":6,"s":"000000053071097093009460094758061015","r":[[7,1,2,8],[10,1,2,8],[13,1,2,16],[16,1,2,12],[20,1,3,19],[25,1,5,33],[31,1,2,7],[34,1,2,6],[7,0,2,14],[25,0,2,15],[8,0,5,24],[21,0,2,11],[10,0,5,28],[11,0,2,4],[29,0,2,13]]},
+{"w":6,"h":6,"s":"000000021700054879042014003450000390","r":[[7,1,3,10],[13,1,5,33],[19,1,2,6],[22,1,2,5],[26,1,3,12],[33,1,2,12],[7,0,3,11],[8,0,4,10],[9,0,2,15],[27,0,2,7],[16,0,4,22],[17,0,2,13]]},
+{"w":6,"h":6,"s":"000000037000069800000150051238098079","r":[[7,1,2,10],[13,1,3,23],[21,1,2,6],[25,1,5,19],[31,1,2,17],[34,1,2,16],[7,0,2,9],[25,0,2,14],[8,0,2,16],[26,0,2,9],[15,0,3,11],[22,0,3,15],[29,0,2,17]]},
+{"w":6,"h":6,"s":"000000094045031572000980098125013018","r":[[7,1,2,13],[10,1,2,9],[13,1,5,18],[21,1,2,17],[25,1,5,25],[31,1,2,4],[34,1,2,9],[7,0,2,12],[25,0,2,10],[8,0,2,5],[26,0,2,11],[15,0,3,15],[10,0,5,22],[11,0,2,7],[29,0,2,13]]},
+{"w":7,"h":7,"s":"0000000056095004832650095089004107803101400750390","r":[[8,1,2,11],[11,1,2,14],[15,1,6,28],[23,1,2,14],[26,1,2,17],[30,1,2,5],[33,1,2,15],[36,1,2,4],[39,1,2,5],[43,1,2,12],[46,1,2,12],[8,0,2,9],[36,0,2,10],[9,0,6,33],[17,0,3,9],[11,0,2,11],[39,0,2,4],[12,0,6,39],[20,0,3,22]]},
+{"w":7,"h":7,"s":"0000000031039009381260042012062150007608510000073","r":[[8,1,2,4],[11,1,2,12],[15,1,6,29],[23,1,2,6],[26,1,2,3],[29,1,4,14],[36,1,2,13],[39,1,3,14],[47,1,2,10],[8,0,2,12],[29,0,2,13],[9,0,5,16],[17,0,3,11],[11,0,2,4],[32,0,2,13],[12,0,3,12],[40,0,2,12],[20,0,2,8],[41,0,2,4]]},
+{"w":7,"h":7,"s":"0000000051007107513940003900005400003986740980128","r":[[8,1,2,6],[12,1,2,8],[15,1,6,29],[24,1,2,12],[30,1,2,9],[36,1,6,37],[43,1,2,17],[46,1,3,11],[8,0,2,12],[36,0,2,12],[9,0,2,6],[30,0,3,22],[17,0,4,16],[18,0,2,12],[39,0,2,7],[12,0,2,16],[40,0,2,9],[13,0,2,5],[41,0,2,12]]},
+{"w":7,"h":7,"s":"0000000000310001692300290014002705908597600930340","r":[[10,1,2,4],[15,1,5,21],[22,1,2,11],[26,1,2,5],[30,1,2,9],[33,1,2,14],[36,1,5,35],[43,1,2,12],[46,1,2,7],[15,0,2,3],[36,0,2,17],[16,0,5,25],[10,0,2,12],[31,0,2,16],[11,0,2,3],[39,0,2,10],[19,0,5,19],[27,0,2,13]]},
+{"w":7,"h":7,"s":"0000000000360000815690890037071087000641520032095","r":[[10,1,2,9],[16,1,5,29],[22,1,2,17],[26,1,2,10],[29,1,2,8],[32,1,2,15],[37,1,5,18],[44,1,2,5],[47,1,2,14],[22,0,2,15],[16,0,5,27],[10,0,2,4],[38,0,2,6],[11,0,2,11],[32,0,2,9],[19,0,5,30],[20,0,2,16],[41,0,2,7]]},
+{"w":7,"h":7,"s":"0000000000420000083950975071042018000832670095024","r":[[10,1,2,6],[17,1,4,25],[22,1,3,21],[26,1,2,8],[29,1,2,6],[32,1,2,9],[37,1,5,26],[44,1,2,14],[47,1,2,6],[22,0,2,13],[23,0,4,26],[10,0,3,17],[38,0,2,8],[11,0,2,5],[32,0,2,3],[19,0,5,32],[20,0,2,6],[41,0,2,11]]},
+{"w":7,"h":7,"s":"0000000006107203951840150390000180009627310430097","r":[[9,1,2,7],[12,1,2,9],[15,1,6,30],[22,1,2,6],[25,1,2,12],[31,1,2,9],[36,1,6,28],[43,1,2,7],[47,1,2,16],[15,0,2,4],[36,0,2,13],[9,0,3,20],[37,0,2,9],[10,0,2,6],[31,0,2,3],[18,0,4,19],[12,0,3,24],[40,0,2,12],[13,0,2,6],[41,0,2,8]]},
+{"w":7,"h":7,"s":"0000000014048008615900097038058014206143290079013","r":[[8,1,2,5],[11,1,2,12],[15,1,5,29],[23,1,2,16],[26,1,2,11],[29,1,2,13],[32,1,3,7],[36,1,6,25],[44,1,2,16],[47,1,2,4],[8,0,2,9],[29,0,2,11],[9,0,6,35],[17,0,2,8],[38,0,2,13],[11,0,2,9],[32,0,2,4],[12,0,6,27],[27,0,4,22]]},
+{"w":7,"h":7,"s":"0000000079016001234500087026061007908391400005800","r":[[8,1,2,16],[11,1,2,7],[15,1,5,15],[23,1,2,15],[26,1,2,8],[29,1,2,7],[33,1,2,16],[36,1,5,25],[45,1,2,13],[8,0,2,8],[29,0,2,14],[9,0,5,23],[17,0,2,10],[38,0,2,14],[11,0,2,5],[39,0,2,9],[12,0,5,24],[27,0,2,15]]},
+{"w":7,"h":7,"s":"0000000074087009687400089095032008707931200004200","r":[[8,1,2,11],[11,1,2,15],[15,1,5,34],[23,1,2,17],[26,1,2,14],[29,1,2,5],[33,1,2,15],[36,1,5,22],[45,1,2,6],[8,0,2,16],[29,0,2,10],[9,0,5,29],[17,0,2,17],[38,0,2,7],[11,0,2,15],[39,0,2,3],[12,0,5,30],[27,0,2,12]]},
+{"w":7,"h":7,"s":"0000000027905601439280000810012003206352490006100","r":[[8,1,3,18],[12,1,2,11],[15,1,6,27],[25,1,2,9],[29,1,2,3],[33,1,2,5],[36,1,6,29],[45,1,2,7],[8,0,2,3],[29,0,2,7],[9,0,2,11],[30,0,2,5],[10,0,2,12],[38,0,2,11],[18,0,2,17],[39,0,2,3],[12,0,5,15],[13,0,2,14],[34,0,2,11]]},
+{"w":7,"h":7,"s":"0000000002500000810790370046069049001623890059067","r":[[9,1,2,7],[16,1,2,9],[19,1,2,16],[22,1,2,10],[26,1,2,10],[29,1,2,15],[32,1,2,13],[36,1,6,29],[44,1,2,14],[47,1,2,13],[22,0,3,10],[9,0,6,37],[10,0,2,6],[38,0,2,11],[32,0,2,7],[19,0,5,34],[20,0,2,15],[41,0,2,16]]},
+{"w":7,"h":7,"s":"0000000008901300740890150420079810000615480035029","r":[[9,1,2,17],[12,1,2,4],[16,1,2,11],[19,1,2,17],[22,1,2,6],[25,1,2,6],[29,1,4,25],[37,1,5,24],[44,1,2,8],[47,1,2,11],[22,0,2,8],[9,0,6,38],[10,0,2,13],[31,0,3,14],[25,0,3,10],[12,0,3,11],[40,0,2,6],[13,0,2,12],[41,0,2,17]]},
+{"w":7,"h":7,"s":"0000000001303800540140530480074089000723610024072","r":[[9,1,2,4],[12,1,2,11],[16,1,2,9],[19,1,2,5],[22,1,2,8],[25,1,2,12],[29,1,2,11],[32,1,2,17],[37,1,5,19],[44,1,2,6],[47,1,2,9],[22,0,2,12],[9,0,6,22],[10,0,2,7],[38,0,2,6],[25,0,3,15],[12,0,6,34],[13,0,2,12],[41,0,2,3]]},
+{"w":7,"h":7,"s":"0000000046094007865230095086094079008712590024017","r":[[8,1,2,10],[11,1,2,13],[15,1,6,31],[23,1,2,14],[26,1,2,14],[29,1,2,13],[32,1,2,16],[36,1,6,32],[44,1,2,6],[47,1,2,8],[8,0,2,11],[29,0,2,17],[9,0,6,36],[17,0,2,11],[38,0,2,5],[11,0,2,14],[32,0,2,9],[12,0,6,29],[20,0,2,9],[41,0,2,16]]},
+{"w":7,"h":7,"s":"0000000000023000064290058057051091009628710073083","r":[[11,1,2,5],[17,1,4,21],[23,1,2,13],[26,1,2,12],[29,1,2,6],[32,1,2,10],[36,1,6,33],[44,1,2,10],[47,1,2,11],[29,0,2,14],[23,0,4,19],[17,0,2,14],[38,0,2,5],[11,0,2,6],[32,0,2,17],[12,0,6,26],[20,0,2,16],[41,0,2,4]]},
+{"w":7,"h":7,"s":"0000000000510000693520250031013059000467850075062","r":[[10,1,2,6],[16,1,5,25],[22,1,2,7],[26,1,2,4],[29,1,2,4],[32,1,2,14],[37,1,5,30],[44,1,2,12],[47,1,2,8],[22,0,2,3],[16,0,5,25],[10,0,2,14],[38,0,2,11],[11,0,2,4],[32,0,2,12],[19,0,5,31],[20,0,2,3],[41,0,2,7]]},
+{"w":7,"h":7,"s":"0000000001409607895430970130032008900512740003100","r":[[9,1,2,5],[12,1,2,15],[15,1,6,36],[22,1,2,16],[25,1,2,4],[29,1,2,5],[33,1,2,17],[37,1,5,19],[45,1,2,4],[15,0,3,19],[9,0,5,23],[10,0,2,13],[38,0,2,4],[18,0,2,6],[39,0,2,3],[12,0,5,31],[13,0,2,9],[34,0,2,13]]},
+{"w":7,"h":7,"s":"0000000058021303671520005890015008702651730008900","r":[[8,1,2,13],[11,1,3,6],[15,1,6,24],[24,1,3,22],[29,1,2,6],[33,1,2,15],[36,1,6,24],[45,1,2,17],[8,0,2,8],[29,0,2,3],[9,0,2,14],[30,0,2,11],[17,0,2,12],[38,0,2,13],[11,0,3,11],[39,0,2,10],[12,0,5,30],[13,0,2,5],[34,0,2,10]]},
+{"w":7,"h":7,"s":"0000000039058001843920019068094081007319540079046","r":[[8,1,2,12],[11,1,2,13],[15,1,6,27],[23,1,2,10],[26,1,2,14],[29,1,2,13],[32,1,2,9],[36,1,6,29],[44,1,2,16],[47,1,2,10],[8,0,2,4],[29,0,2,16],[9,0,6,32],[17,0,2,13],[38,0,2,10],[11,0,2,8],[32,0,2,17],[12,0,6,33],[20,0,2,10],[41,0,2,10]]}];
+const { $, store, toast } = T;
+T.kur({
+  ad: "Toplam",
+  modDegisti: m => start(m, size, true),
+  yeni: () => start("practice", size, true), yeniEtiket: "Yeni bulmaca",
+  yardim: `<p>Beyaz karelere <b>1–9</b> arası rakamlar yazın.</p>
+    <ul><li>Siyah karedeki sağ üst sayı, sağındaki beyaz karelerin; sol alt sayı, altındaki beyaz karelerin <b>toplamıdır</b>.</li>
+    <li>Bir toplamın içinde aynı rakam <b>iki kez</b> kullanılamaz.</li></ul>
+    <div class="demo"><i class="k"></i><i class="k">↓4</i><i class="k">↓3</i><i class="k">6→</i><i>4</i><i>2</i><i class="k">2→</i><i>…</i><i>…</i></div>
+    <p class="note">Örnek: 6'yı iki farklı rakamla yazmanın yolları 1+5 ve 2+4'tür.</p>
+    <div class="hr"></div><p class="note">Her bulmacanın tek bir çözümü vardır. Doğru tamamlanan toplamlar yeşile, yanlışlar kırmızıya döner.</p>`
+});
+
+let stats = store.get("toplam-stats", { 6: { played: 0, best: null }, 7: { played: 0, best: null }, streak: 0, best: 0, lastDay: null });
+let size = store.get("toplam-size", 6);
+let mode, day, pid, P, W, H, sol, runs, runOf, vals, notes, sel, noteMode = false, history, elapsed, startedAt, hints, won;
+const bySize = n => PUZZLES.map((p, i) => p.w === n ? i : -1).filter(i => i >= 0);
+const LEVEL = { 6: "Kolay", 7: "Zor" };
+
+/* ---------- Sıralar ---------- */
+function prepare() {
+  W = P.w; H = P.h; sol = [...P.s].map(Number);
+  runs = P.r.map(([start, h, len, sum]) => ({ cells: Array.from({ length: len }, (_, k) => start + (h ? k : k * W)), h: !!h, sum, clue: h ? start - 1 : start - W }));
+  runOf = {};
+  runs.forEach((r, k) => r.cells.forEach(i => (runOf[i] ||= []).push(k)));
+}
+function runState(r) {
+  const v = r.cells.map(i => vals[i]);
+  const dup = v.some((x, k) => x && v.indexOf(x) !== k);
+  if (dup) return "bad";
+  if (v.some(x => !x)) return "";
+  return v.reduce((a, b) => a + b) === r.sum ? "ok" : "bad";
+}
+
+/* ---------- Render ---------- */
+const grid = $("#grid");
+function build() {
+  grid.style.gridTemplateColumns = `repeat(${W},1fr)`;
+  grid.style.gridTemplateRows = `repeat(${H},1fr)`;
+  grid.style.setProperty("--n", W);
+  grid.classList.remove("won");
+  const clues = {};
+  runs.forEach((r, k) => { (clues[r.clue] ||= {})[r.h ? "a" : "d"] = k; });
+  grid.innerHTML = sol.map((v, i) => {
+    if (v) return `<div class="c" data-i="${i}" style="--d:${Math.floor(i / W) + i % W}"></div>`;
+    const c = clues[i];
+    if (!c) return `<div class="k"></div>`;
+    return `<div class="k clue">${c.a !== undefined ? `<span class="a" data-k="${c.a}">${runs[c.a].sum}</span>` : ""}${c.d !== undefined ? `<span class="d" data-k="${c.d}">${runs[c.d].sum}</span>` : ""}</div>`;
+  }).join("");
+  $("#pad").innerHTML = Array.from({ length: 9 }, (_, k) => `<button data-v="${k + 1}">${k + 1}</button>`).join("");
+}
+function render(changed = -1) {
+  const states = runs.map(runState);
+  const peers = sel >= 0 ? new Set(runOf[sel].flatMap(k => runs[k].cells)) : new Set();
+  grid.querySelectorAll(".c").forEach(el => {
+    const i = +el.dataset.i;
+    el.classList.toggle("sel", i === sel);
+    el.classList.toggle("peer", i !== sel && peers.has(i));
+    el.classList.toggle("bad", runOf[i].some(k => { const v = runs[k].cells.map(j => vals[j]); return vals[i] && v.filter(x => x === vals[i]).length > 1; }));
+    el.classList.toggle("in", i === changed);
+    if (vals[i]) el.textContent = vals[i];
+    else if (notes[i] && notes[i].length) el.innerHTML = `<div class="notes">${Array.from({ length: 9 }, (_, k) => `<i>${notes[i].includes(k + 1) ? k + 1 : ""}</i>`).join("")}</div>`;
+    else el.textContent = "";
+  });
+  grid.querySelectorAll(".k span").forEach(s => { const st = states[+s.dataset.k]; s.classList.toggle("ok", st === "ok"); s.classList.toggle("bad", st === "bad"); });
+  // seçili karenin sıralarında kullanılmış rakamları soluk göster
+  const used = sel >= 0 ? new Set(runOf[sel].flatMap(k => runs[k].cells.filter(j => j !== sel).map(j => vals[j])).filter(Boolean)) : new Set();
+  $("#pad").querySelectorAll("button").forEach(b => b.classList.toggle("no", used.has(+b.dataset.v)));
+  $("#noteBtn").classList.toggle("on", noteMode);
+  $("#undoBtn").disabled = !history.length || won;
+  ["#eraseBtn", "#noteBtn", "#hintBtn"].forEach(s => $(s).disabled = won);
+  document.querySelectorAll("#sizes .chip").forEach(b => b.classList.toggle("on", +b.dataset.n === W));
+}
+
+/* ---------- Etkileşim ---------- */
+const snap = () => history.push({ vals: vals.slice(), notes: notes.map(n => n.slice()) });
+grid.addEventListener("click", e => { const el = e.target.closest(".c"); if (!el || won) return; sel = +el.dataset.i; tickStart(); render(); });
+$("#pad").addEventListener("click", e => { const b = e.target.closest("button"); if (b) put(+b.dataset.v); });
+function put(v) {
+  if (won || sel < 0) return;
+  tickStart(); snap();
+  if (noteMode) { const n = notes[sel], k = n.indexOf(v); if (k >= 0) n.splice(k, 1); else n.push(v); vals[sel] = 0; }
+  else { vals[sel] = vals[sel] === v ? 0 : v; notes[sel] = []; }
+  save(); render(sel); check();
+}
+$("#eraseBtn").onclick = () => { if (sel < 0 || won) return; snap(); vals[sel] = 0; notes[sel] = []; save(); render(); };
+$("#noteBtn").onclick = () => { noteMode = !noteMode; render(); };
+$("#undoBtn").onclick = () => { const h = history.pop(); if (!h || won) return; vals = h.vals; notes = h.notes; save(); render(); };
+$("#hintBtn").onclick = () => {
+  if (won) return;
+  tickStart();
+  const white = sol.map((v, i) => v ? i : -1).filter(i => i >= 0);
+  const i = sel >= 0 && vals[sel] !== sol[sel] ? sel : white.find(k => vals[k] !== sol[k]);
+  if (i === undefined) return;
+  snap(); vals[i] = sol[i]; notes[i] = []; sel = i; hints++; elapsed += 15;
+  toast("İpucu: +15 saniye");
+  save(); render(i); check();
+};
+document.addEventListener("keydown", e => {
+  if (T.isOpen() || won) return;
+  if (e.key >= "1" && e.key <= "9") put(+e.key);
+  else if (e.key === "Backspace" || e.key === "Delete" || e.key === "0") $("#eraseBtn").click();
+  else if (e.key === "n" || e.key === "N") $("#noteBtn").click();
+  else if (e.key.startsWith("Arrow") && sel >= 0) {
+    const [dr, dc] = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    let r = Math.floor(sel / W), c = sel % W;
+    for (let k = 0; k < W * H; k++) { r += dr; c += dc; if (r < 0 || r >= H || c < 0 || c >= W) break; if (sol[r * W + c]) { sel = r * W + c; break; } }
+    e.preventDefault(); render();
+  }
+});
+document.querySelectorAll("#sizes .chip").forEach(b => b.onclick = () => { if (+b.dataset.n !== W) start(mode, +b.dataset.n); });
+
+/* ---------- Süre ---------- */
+const now = () => elapsed + (startedAt ? (Date.now() - startedAt) / 1000 : 0);
+function tickStart() { if (!won && !startedAt) startedAt = Date.now(); }
+function tickStop() { if (startedAt) { elapsed += (Date.now() - startedAt) / 1000; startedAt = null; } }
+setInterval(() => { $("#clock").textContent = T.fmt(now()); }, 250);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { tickStop(); save(); } });
+
+/* ---------- Oyun ---------- */
+function check() {
+  if (runs.some(r => runState(r) !== "ok")) return;
+  tickStop(); won = true; sel = -1;
+  save(); render(); grid.classList.add("won");
+  if (mode === "daily") {
+    const st = stats[W]; st.played++;
+    st.best = st.best === null ? Math.round(elapsed) : Math.min(st.best, Math.round(elapsed));
+    T.seriGuncelle(stats, day, true);
+    store.set("toplam-stats", stats);
+  }
+  toast(`Çözdünüz! ${T.fmt(elapsed)}`, 1900);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1400);
+}
+function key() { return `toplam-${mode === "daily" ? "daily" : "practice"}-${size}`; }
+function start(m, n = size, fresh = false) {
+  tickStop();
+  mode = m; size = n; store.set("toplam-size", n);
+  day = T.dayIndex();
+  const list = bySize(n);
+  let s = fresh && m === "practice" ? null : store.get(key(), null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (!s) {
+    const p = m === "daily" ? list[((day * 7 + 5) % list.length + list.length) % list.length] : T.shuffle(list.filter(i => i !== pid))[0];
+    s = { pid: p, vals: null, notes: null, elapsed: 0, hints: 0, won: false };
+  }
+  pid = s.pid; P = PUZZLES[pid]; prepare();
+  vals = s.vals || Array(W * H).fill(0);
+  notes = s.notes || Array.from({ length: W * H }, () => []);
+  ({ elapsed, hints, won } = s);
+  sel = -1; history = []; startedAt = null; noteMode = false;
+  save(); build(); render();
+  if (won) grid.classList.add("won");
+  T.altSatir(m, day, ["Yeni bulmaca", () => start("practice", size, true)], LEVEL[n]);
+  T.aktifMod(m);
+}
+function save() { store.set(key(), { day, pid, vals, notes, elapsed: now(), hints, won }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${won ? `<div class="result"><div class="big">${T.fmt(elapsed)}</div><p>${LEVEL[W]} kakuroyu çözdünüz${hints ? ` · ${hints} ipucu` : ""}</p></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats[6].played + stats[7].played, "Çözülen"], [stats[6].best === null ? "–" : T.fmt(stats[6].best), "En İyi Kolay"], [stats[7].best === null ? "–" : T.fmt(stats[7].best), "En İyi Zor"], [T.seri(stats), "Seri"]])}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: won })}`);
+T.paylasim(() => `Toplam #${day + 1} · ${LEVEL[W]} · ${T.fmt(elapsed)}${hints ? ` (${hints} ipucu)` : " · ipuçsuz"} ➕`);
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily", size);
+T.ilkZiyaret("toplam-seen");
+</script>
+</body>
+</html>

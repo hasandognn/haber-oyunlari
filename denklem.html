@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Denklem — Günlük Sayı Bulmacası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+:root{--correct:#6aa780;--present:#c98bc5;--absent:#9da1a6;--tile:min(50px, calc((100vw - 40px) / var(--len) - 6px), calc((100dvh - 400px) / 6 - 6px))}
+body{overflow-x:hidden}
+.sizes{display:flex;gap:6px}
+.board{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:repeat(var(--len),var(--tile));gap:6px}
+.row.shake{animation:shake .45s var(--ease)}
+.t{height:var(--tile);border-radius:8px;border:1.5px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:calc(var(--tile) * .5);background:#fff;transition:border-color .2s}
+.t.filled{border-color:var(--line-strong);animation:pop .15s var(--ease)}
+.t[data-s]{color:#fff;border-color:transparent;animation:flip .5s var(--ease) both;animation-delay:calc(var(--d) * 120ms)}
+.t[data-s=correct]{background:var(--correct)}
+.t[data-s=present]{background:var(--present)}
+.t[data-s=absent]{background:var(--absent)}
+.t.cur{box-shadow:0 0 0 2px var(--ink)}
+.board.won .row.last .t{animation:bounce .8s var(--ease) both;animation-delay:calc(var(--d) * 70ms)}
+@keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+.kb{width:100%;max-width:480px;display:flex;flex-direction:column;gap:7px;user-select:none;-webkit-user-select:none}
+.kr{display:flex;gap:5px;justify-content:center}
+.key{flex:1;max-width:46px;height:52px;border:0;border-radius:9px;background:var(--key);font-weight:700;font-size:18px;cursor:pointer;display:grid;place-items:center;padding:0;transition:background-color .35s,color .35s,transform .12s}
+.key:active{transform:scale(.93)}
+.key.wide{flex:1.8;max-width:84px;font-size:13px;letter-spacing:.03em}
+.key svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.key[data-s]{color:#fff}
+.key[data-s=correct]{background:var(--correct)}
+.key[data-s=present]{background:var(--present)}
+.key[data-s=absent]{background:var(--absent)}
+.ex{display:flex;gap:4px;margin:10px 0 6px}
+.ex b{width:30px;height:34px;border-radius:6px;display:grid;place-items:center;border:1.5px solid var(--line-strong);font-size:15px}
+.ex b.c{background:var(--correct);border-color:var(--correct);color:#fff}
+.ex b.p{background:var(--present);border-color:var(--present);color:#fff}
+.ex b.a{background:var(--absent);border-color:var(--absent);color:#fff}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="sizes" id="sizes"><button class="chip" data-n="8">Klasik · 8</button><button class="chip" data-n="6">Mini · 6</button></div>
+    <div class="board" id="board"></div>
+    <div class="kb" id="kb"></div>
+  </main>
+</div>
+
+<script src="temel.js"></script>
+<script>
+const ROWS = 6, OPS = "+-*/";
+const SHOW = { "*": "×", "/": "÷", "-": "−" };
+const { $, store, toast } = T;
+T.kur({
+  ad: "Denklem",
+  modDegisti: m => start(m, len, true),
+  yeni: () => start("practice", len, true), yeniEtiket: "Yeni denklem",
+  yardim: `<p>Gizli <b>denklemi</b> 6 denemede bulun. Her tahmin geçerli bir eşitlik olmalı, örneğin <b>12+35=47</b>.</p>
+    <ul><li>Rakamlar ve <b>+ − × ÷</b> işaretleri kullanılır; tam bir <b>=</b> işareti olmalı ve sağ tarafı yalnızca bir sayı olmalı.</li>
+    <li>İşlem önceliği geçerlidir: çarpma ve bölme önce yapılır. Bölmeler tam sayı vermeli.</li></ul>
+    <h3>Renkler</h3>
+    <div class="ex"><b class="c">1</b><b>2</b><b>+</b><b>3</b><b>5</b><b>=</b><b>4</b><b>7</b></div><p><b>Yeşil</b>: doğru yerde.</p>
+    <div class="ex"><b>9</b><b class="p">×</b><b>8</b><b>=</b><b>7</b><b>2</b></div><p><b>Mor</b>: denklemde var ama başka yerde.</p>
+    <div class="ex"><b>6</b><b>0</b><b class="a">÷</b><b>4</b><b>=</b><b>1</b><b>5</b></div><p><b>Gri</b>: denklemde yok.</p>
+    <div class="hr"></div><p class="note">Mini mod 6 karakterlik denklemler kullanır (örneğin 4×7=28).</p>`
+});
+
+let stats = store.get("denklem-stats", { played: 0, wins: 0, streak: 0, best: 0, lastDay: null, dist: [0, 0, 0, 0, 0, 0] });
+let len = store.get("denklem-len", 8);
+let mode, day, answer, guesses, cur, over, won;
+
+/* ---------- Denklem ---------- */
+// sayı ve işlem dizisine ayır; geçersizse null
+function tokens(s) {
+  const out = [];
+  let num = "";
+  for (const ch of s) {
+    if (ch >= "0" && ch <= "9") num += ch;
+    else { if (!num) return null; out.push(num); out.push(ch); num = ""; }
+  }
+  if (!num) return null;
+  out.push(num);
+  if (out.some(t => /^0\d/.test(t))) return null;   // baştaki sıfır olmaz
+  return out;
+}
+function evalExpr(s) {
+  const t = tokens(s);
+  if (!t || t.some((x, i) => i % 2 === 1 && !OPS.includes(x))) return null;
+  // önce çarpma/bölme, sonra toplama/çıkarma
+  const nums = [+t[0]], ops = [];
+  for (let i = 1; i < t.length; i += 2) {
+    const op = t[i], n = +t[i + 1];
+    if (op === "*") nums.push(nums.pop() * n);
+    else if (op === "/") { const a = nums.pop(); if (n === 0 || a % n) return null; nums.push(a / n); }
+    else { ops.push(op); nums.push(n); }
+  }
+  let v = nums[0];
+  ops.forEach((op, i) => v = op === "+" ? v + nums[i + 1] : v - nums[i + 1]);
+  return v;
+}
+function valid(s) {
+  const parts = s.split("=");
+  if (parts.length !== 2) return "Tek bir “=” olmalı";
+  const [l, r] = parts;
+  if (!/^\d+$/.test(r) || /^0\d/.test(r)) return "Eşitliğin sağında yalnızca bir sayı olmalı";
+  if (!/[+\-*/]/.test(l)) return "Sol tarafta en az bir işlem olmalı";
+  const v = evalExpr(l);
+  if (v === null) return "Geçersiz işlem";
+  if (v !== +r) return "Eşitlik doğru değil";
+  return "";
+}
+function generate(n, rand) {
+  const R = k => Math.floor(rand() * k);
+  for (let tries = 0; tries < 20000; tries++) {
+    const terms = n === 6 ? 2 : (rand() < .55 ? 2 : 3);
+    let l = "";
+    for (let k = 0; k < terms; k++) {
+      const digits = n === 6 ? 1 : 1 + R(2);
+      let num = String(1 + R(9));
+      for (let d = 1; d < digits; d++) num += R(10);
+      l += (k ? OPS[R(4)] : "") + num;
+    }
+    const v = evalExpr(l);
+    if (v === null || v < 0) continue;
+    const eq = `${l}=${v}`;
+    if (eq.length === n && !valid(eq)) return eq;
+  }
+  return n === 6 ? "4*7=28" : "12+35=47";
+}
+
+/* ---------- Puanlama ---------- */
+function score(g) {
+  const res = Array(len).fill("absent"), left = {};
+  for (let i = 0; i < len; i++) { if (g[i] === answer[i]) res[i] = "correct"; else left[answer[i]] = (left[answer[i]] || 0) + 1; }
+  for (let i = 0; i < len; i++) if (res[i] !== "correct" && left[g[i]]) { res[i] = "present"; left[g[i]]--; }
+  return res;
+}
+
+/* ---------- Render ---------- */
+const board = $("#board"), kb = $("#kb");
+const LAYOUT = [["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"], ["+", "-", "*", "/", "="], ["enter", "back"]];
+kb.innerHTML = LAYOUT.map(r => `<div class="kr">${r.map(k => k === "enter" ? `<button class="key wide" data-k="enter">GİR</button>`
+  : k === "back" ? `<button class="key wide" data-k="back" aria-label="Sil"><svg viewBox="0 0 24 24"><path d="M9 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-6-6z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg></button>`
+  : `<button class="key" data-k="${k}">${SHOW[k] || k}</button>`).join("")}</div>`).join("");
+function render(flipRow = -1) {
+  document.documentElement.style.setProperty("--len", len);
+  board.classList.toggle("won", won);
+  let html = "";
+  for (let r = 0; r < ROWS; r++) {
+    const g = guesses[r], isCur = !over && r === guesses.length;
+    const res = g ? score(g) : null;
+    html += `<div class="row${r === guesses.length - 1 && won ? " last" : ""}" data-r="${r}">${Array.from({ length: len }, (_, i) => {
+      const ch = g ? g[i] : isCur ? cur[i] : "";
+      const s = res ? ` data-s="${res[i]}"` : "";
+      return `<div class="t${ch && !g ? " filled" : ""}${isCur && i === cur.length ? " cur" : ""}"${s} style="--d:${r === flipRow || won ? i : 0}">${ch ? SHOW[ch] || ch : ""}</div>`;
+    }).join("")}</div>`;
+  }
+  board.innerHTML = html;
+  // eski satırlar her çizimde yeniden dönmesin; kazanınca son satır zıplasın
+  if (flipRow < 0) board.querySelectorAll(won ? ".row:not(.last) .t[data-s]" : ".t[data-s]").forEach(t => t.style.animation = "none");
+  const rank = { absent: 1, present: 2, correct: 3 }, best = {};
+  guesses.forEach(g => score(g).forEach((s, i) => { if (!best[g[i]] || rank[s] > rank[best[g[i]]]) best[g[i]] = s; }));
+  kb.querySelectorAll(".key[data-k]").forEach(b => { const s = best[b.dataset.k]; if (s) b.dataset.s = s; else delete b.dataset.s; });
+  document.querySelectorAll("#sizes .chip").forEach(b => b.classList.toggle("on", +b.dataset.n === len));
+}
+
+/* ---------- Giriş ---------- */
+kb.addEventListener("mousedown", e => e.preventDefault());
+kb.addEventListener("click", e => { const b = e.target.closest(".key"); if (b) press(b.dataset.k); });
+document.addEventListener("keydown", e => {
+  if (T.isOpen() || e.metaKey || e.ctrlKey) return;
+  const k = e.key === "x" || e.key === "X" ? "*" : e.key === ":" ? "/" : e.key;
+  if (k === "Enter") { e.preventDefault(); press("enter"); }
+  else if (k === "Backspace") { e.preventDefault(); press("back"); }
+  else if ("0123456789+-*/=".includes(k) && k.length === 1) press(k);
+});
+function press(k) {
+  if (over) return;
+  if (k === "enter") return submit();
+  if (k === "back") { cur = cur.slice(0, -1); return render(); }
+  if (cur.length >= len) return;
+  cur += k;
+  render();
+}
+function shake(msg) {
+  toast(msg);
+  const row = board.querySelector(`.row[data-r="${guesses.length}"]`);
+  row.classList.remove("shake"); void row.offsetWidth; row.classList.add("shake");
+}
+function submit() {
+  if (cur.length < len) return shake("Bütün kutuları doldurun");
+  const err = valid(cur);
+  if (err) return shake(err);
+  guesses.push(cur);
+  cur = "";
+  if (guesses.at(-1) === answer) { over = true; won = true; }
+  else if (guesses.length >= ROWS) { over = true; won = false; }
+  save();
+  render(guesses.length - 1);
+  if (over) setTimeout(finish, 120 * len + 500);
+}
+function finish() {
+  if (mode === "daily") {
+    stats.played++;
+    if (won) { stats.wins++; stats.dist[guesses.length - 1]++; }
+    T.seriGuncelle(stats, day, won);
+    store.set("denklem-stats", stats);
+  }
+  render();
+  toast(won ? ["Dahi!", "Muhteşem!", "Harika!", "Çok iyi!", "Güzel!", "Kıl payı!"][guesses.length - 1] : answer.replace(/[*/-]/g, c => SHOW[c]), 2200);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1500);
+}
+function key() { return `denklem-${mode === "daily" ? "daily" : "practice"}-${len}`; }
+function start(m, n = len, fresh = false) {
+  mode = m; len = n; store.set("denklem-len", n);
+  day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(key(), null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (!s) s = { answer: generate(n, m === "daily" ? T.rng(day * 7121 + n) : Math.random), guesses: [], cur: "" };
+  ({ answer, guesses, cur } = s);
+  won = guesses.includes(answer);
+  over = won || guesses.length >= ROWS;
+  save();
+  render();
+  T.altSatir(m, day, ["Yeni denklem", () => start("practice", len, true)], n === 8 ? "Klasik" : "Mini");
+  T.aktifMod(m);
+}
+function save() { store.set(key(), { day, answer, guesses, cur }); }
+document.querySelectorAll("#sizes .chip").forEach(b => b.onclick = () => { if (+b.dataset.n !== len) start(mode, +b.dataset.n); });
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${over ? `<div class="result"><div class="big" style="font-size:34px;letter-spacing:.04em">${answer.replace(/[*/-]/g, c => SHOW[c])}</div><p>${won ? `${guesses.length}. denemede buldunuz` : "Bu sefer olmadı"}</p></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats.played, "Oynanan"], [stats.played ? Math.round(stats.wins / stats.played * 100) : 0, "Kazanma %"], [T.seri(stats), "Güncel Seri"], [stats.best || 0, "En İyi Seri"]])}
+  <h3>Deneme Dağılımı</h3>${T.dagilim(stats.dist, [1, 2, 3, 4, 5, 6], mode === "daily" && won ? guesses.length - 1 : -1)}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: over })}`);
+T.paylasim(() => {
+  const sq = { correct: "🟩", present: "🟪", absent: "⬛" };
+  return `Denklem #${day + 1} ${len === 8 ? "" : "Mini "}${won ? guesses.length : "X"}/${ROWS}\n${guesses.map(g => score(g).map(s => sq[s]).join("")).join("\n")}`;
+});
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily", len);
+T.ilkZiyaret("denklem-seen");
+</script>
+</body>
+</html>

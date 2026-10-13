@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>2048 — Kaydır, Birleştir</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+:root{--bs:min(440px, calc(100vw - 32px), calc(100dvh - 300px));--gap:calc(var(--bs) * .028);--cell:calc((var(--bs) - 5 * var(--gap)) / 4)}
+.scores{display:flex;gap:10px}
+.sc{background:var(--soft);border-radius:12px;padding:8px 16px;text-align:center;min-width:92px}
+.sc small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sc b{font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.sc .plus{position:absolute;font-size:14px;font-weight:700;color:var(--ok);animation:plus .8s var(--ease) forwards;margin-left:6px}
+@keyframes plus{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-22px)}}
+.board{position:relative;width:var(--bs);height:var(--bs);border-radius:16px;background:#e9e4d6;touch-action:none;user-select:none;-webkit-user-select:none}
+.bg{position:absolute;width:var(--cell);height:var(--cell);border-radius:10px;background:#f4f0e6}
+.tile{position:absolute;left:0;top:0;width:var(--cell);height:var(--cell);border-radius:10px;display:grid;place-items:center;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+  transition:transform .12s ease-in-out;will-change:transform}
+.tile span{display:grid;place-items:center;width:100%;height:100%;border-radius:10px}
+.tile.new span{animation:appear .2s var(--ease) .08s both}
+.tile.merged span{animation:pop .22s var(--ease)}
+@keyframes appear{from{transform:scale(0);opacity:0}to{transform:none;opacity:1}}
+.overlay{position:absolute;inset:0;border-radius:16px;background:rgba(255,255,255,.78);backdrop-filter:blur(2px);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;animation:tin .4s var(--ease)}
+.overlay.on{display:flex}
+.overlay b{font-size:30px;letter-spacing:-.02em}
+.hint{font-size:13px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="scores">
+      <div class="sc"><small>Puan</small><b id="score">0</b></div>
+      <div class="sc"><small>Rekor</small><b id="best">0</b></div>
+    </div>
+    <div class="board" id="board">
+      <div class="overlay" id="overlay"></div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="undoBtn"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Geri al</button>
+      <button class="btn" id="newBtn">Yeni oyun</button>
+    </div>
+    <p class="hint">Yön tuşlarıyla ya da parmağınızı kaydırarak oynayın.</p>
+  </main>
+</div>
+
+<script src="temel.js"></script>
+<script>
+const N = 4, GOAL = 2048;
+const COLORS = {
+  2: ["#f3eee3", "#5f5a50"], 4: ["#efe6cf", "#5f5a50"], 8: ["#f2c48d", "#fff"], 16: ["#efa56b", "#fff"],
+  32: ["#ec8a5f", "#fff"], 64: ["#e66a48", "#fff"], 128: ["#ead27a", "#fff"], 256: ["#e8cb62", "#fff"],
+  512: ["#e5c24b", "#fff"], 1024: ["#e2b935", "#fff"], 2048: ["#6aa780", "#fff"]
+};
+const { $, store, toast } = T;
+
+T.kur({
+  ad: "2048",
+  modlar: [["new", "Yeni Oyun", "practice"]],
+  altyazi: "Bloklar birleşsin, sayılar büyüsün.",
+  modDegisti: () => newGame(),
+  yardim: `<p>Aynı sayıdaki bloklar çarpışınca <b>birleşir</b> ve toplamları olur. Amaç <b>2048</b> bloğuna ulaşmak.</p>
+    <ul><li>Yön tuşlarıyla ya da parmağınızı kaydırarak bütün blokları aynı yöne itin.</li>
+    <li>Her hamleden sonra boş bir kareye 2 ya da 4 gelir.</li>
+    <li>Hiç hamle kalmazsa oyun biter. Bir hamle geri alınabilir.</li></ul>
+    <div class="hr"></div><p class="note">2048'e ulaştıktan sonra oynamaya devam edebilirsiniz.</p>`
+});
+
+let stats = store.get("2048-stats", { played: 0, best: 0, top: 0, wins: 0 });
+let tiles, score, over, won, keepGoing, prev = null, nextId = 1;
+const board = $("#board");
+const els = new Map();
+
+/* ---------- Tahta ---------- */
+for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+  const d = document.createElement("div");
+  d.className = "bg";
+  d.style.left = `calc(var(--gap) + ${c} * (var(--cell) + var(--gap)))`;
+  d.style.top = `calc(var(--gap) + ${r} * (var(--cell) + var(--gap)))`;
+  board.insertBefore(d, $("#overlay"));
+}
+const pos = (r, c) => `translate(calc(var(--gap) + ${c} * (var(--cell) + var(--gap))), calc(var(--gap) + ${r} * (var(--cell) + var(--gap))))`;
+function paint(t, el) {
+  const [bg, fg] = COLORS[t.v] || ["#3a3a3d", "#fff"];
+  const span = el.firstChild;
+  span.style.background = bg; span.style.color = fg;
+  span.textContent = t.v;
+  const len = String(t.v).length;
+  span.style.fontSize = `calc(var(--cell) * ${len <= 2 ? .44 : len === 3 ? .36 : len === 4 ? .29 : .24})`;
+}
+function render(spawned = new Set(), merged = new Set()) {
+  const alive = new Set(tiles.map(t => t.id));
+  for (const [id, el] of els) if (!alive.has(id)) { el.remove(); els.delete(id); }
+  for (const t of tiles) {
+    let el = els.get(t.id);
+    if (!el) { el = document.createElement("div"); el.className = "tile"; el.innerHTML = "<span></span>"; board.insertBefore(el, $("#overlay")); els.set(t.id, el); }
+    el.classList.toggle("new", spawned.has(t.id));
+    el.classList.remove("merged");
+    if (merged.has(t.id)) { void el.offsetWidth; el.classList.add("merged"); }
+    el.style.transform = pos(t.r, t.c);
+    el.style.zIndex = merged.has(t.id) ? 2 : 1;
+    paint(t, el);
+  }
+  $("#score").textContent = score;
+  $("#best").textContent = Math.max(stats.best, score);
+  $("#undoBtn").disabled = !prev || over;
+  const ov = $("#overlay");
+  if (over) { ov.innerHTML = `<b>Oyun bitti</b><span>${score} puan</span><button class="btn" onclick="newGame()">Tekrar oyna</button>`; ov.classList.add("on"); }
+  else if (won && !keepGoing) { ov.innerHTML = `<b>2048! 🎉</b><span>${score} puan</span><div class="actions"><button class="btn ghost" onclick="keepGoing=true;save();render()">Devam et</button><button class="btn" onclick="newGame()">Yeni oyun</button></div>`; ov.classList.add("on"); }
+  else ov.classList.remove("on");
+}
+
+/* ---------- Oyun ---------- */
+function empty() {
+  const taken = new Set(tiles.map(t => t.r * N + t.c));
+  const out = [];
+  for (let i = 0; i < N * N; i++) if (!taken.has(i)) out.push(i);
+  return out;
+}
+function spawn() {
+  const e = empty();
+  if (!e.length) return null;
+  const i = e[Math.floor(Math.random() * e.length)];
+  const t = { id: nextId++, v: Math.random() < .9 ? 2 : 4, r: Math.floor(i / N), c: i % N };
+  tiles.push(t);
+  return t.id;
+}
+function move(dir) {
+  if (over || (won && !keepGoing)) return;
+  const [dr, dc] = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] }[dir];
+  const snapshot = { tiles: tiles.map(t => ({ ...t })), score };
+  const grid = Array.from({ length: N }, () => Array(N).fill(null));
+  tiles.forEach(t => grid[t.r][t.c] = t);
+  const order = [...Array(N).keys()];
+  const rows = dr === 1 ? order.slice().reverse() : order, cols = dc === 1 ? order.slice().reverse() : order;
+  let moved = false, gained = 0;
+  const merged = new Set(), dead = new Set();
+  for (const r of rows) for (const c of cols) {
+    const t = grid[r][c];
+    if (!t) continue;
+    let nr = r, nc = c;
+    while (true) {
+      const rr = nr + dr, cc = nc + dc;
+      if (rr < 0 || rr >= N || cc < 0 || cc >= N) break;
+      const o = grid[rr][cc];
+      if (!o) { nr = rr; nc = cc; continue; }
+      if (o.v === t.v && !merged.has(o.id)) {
+        // birleş: kayan taş hedefe gider ve silinir, hedefin değeri ikiye katlanır
+        grid[r][c] = null; t.r = rr; t.c = cc; dead.add(t.id);
+        o.v *= 2; gained += o.v; merged.add(o.id); moved = true;
+        nr = null;
+      }
+      break;
+    }
+    if (nr !== null && (nr !== r || nc !== c)) { grid[r][c] = null; grid[nr][nc] = t; t.r = nr; t.c = nc; moved = true; }
+  }
+  if (!moved) return;
+  prev = snapshot;
+  score += gained;
+  render(new Set(), new Set());            // önce kaydır
+  tiles = tiles.filter(t => !dead.has(t.id));
+  const sp = spawn();
+  setTimeout(() => {
+    if (!won && tiles.some(t => t.v >= GOAL)) { won = true; stats.wins++; }
+    over = !canMove();
+    if (score > stats.best) stats.best = score;
+    stats.top = Math.max(stats.top, ...tiles.map(t => t.v));
+    if (over) { stats.played++; }
+    store.set("2048-stats", stats);
+    render(new Set([sp]), merged);
+    save();
+    if (gained) bump(gained);
+    if (over) setTimeout(() => T.open("stats"), 900);
+  }, 120);
+}
+function canMove() {
+  if (empty().length) return true;
+  const g = {};
+  tiles.forEach(t => g[t.r * N + t.c] = t.v);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const v = g[r * N + c];
+    if ((c < N - 1 && g[r * N + c + 1] === v) || (r < N - 1 && g[(r + 1) * N + c] === v)) return true;
+  }
+  return false;
+}
+function bump(n) {
+  const sc = $("#score").parentElement;
+  const p = document.createElement("span");
+  p.className = "plus"; p.textContent = "+" + n;
+  sc.style.position = "relative";
+  p.style.position = "absolute"; p.style.right = "6px"; p.style.top = "4px";
+  sc.appendChild(p);
+  setTimeout(() => p.remove(), 800);
+}
+function newGame() {
+  if (tiles && tiles.length && !over && score > 0) { stats.played++; store.set("2048-stats", stats); }
+  T.closeAll();
+  tiles = []; score = 0; over = false; won = false; keepGoing = false; prev = null;
+  els.forEach(el => el.remove()); els.clear();
+  const a = spawn(), b = spawn();
+  render(new Set([a, b]));
+  save();
+}
+function save() { store.set("2048-game", { tiles, score, over, won, keepGoing, nextId }); }
+$("#newBtn").onclick = newGame;
+$("#undoBtn").onclick = () => {
+  if (!prev || over) return;
+  tiles = prev.tiles; score = prev.score; prev = null;
+  els.forEach(el => el.remove()); els.clear();
+  render(); save();
+};
+
+/* ---------- Giriş ---------- */
+document.addEventListener("keydown", e => {
+  if (T.isOpen()) return;
+  const k = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right" }[e.key];
+  if (k) { e.preventDefault(); move(k); }
+});
+let touch = null;
+board.addEventListener("pointerdown", e => { touch = { x: e.clientX, y: e.clientY }; board.setPointerCapture(e.pointerId); });
+board.addEventListener("pointerup", e => {
+  if (!touch) return;
+  const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
+  touch = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+  move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+});
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${over ? `<div class="result"><div class="big">${score}</div><p>puan · en büyük blok ${Math.max(...tiles.map(t => t.v))}</p></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats.played, "Oyun"], [stats.best, "Rekor"], [stats.top, "En Büyük Blok"], [stats.wins, "2048'e Ulaşma"]])}
+  ${over ? `<div class="foot"><div></div><button class="btn" onclick="T.closeAll();newGame()">Yeni oyun</button></div>` : ""}`);
+
+/* ---------- Boot ---------- */
+{
+  const s = store.get("2048-game", null);
+  if (s && s.tiles && s.tiles.length) { ({ tiles, score, over, won, keepGoing, nextId } = s); prev = null; render(); }
+  else newGame();
+}
+T.aktifMod("new");
+T.ilkZiyaret("2048-seen");
+</script>
+</body>
+</html>

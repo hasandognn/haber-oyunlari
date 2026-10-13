@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Piksel — Günlük Resim Bulmacası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+:root{--fill:#2f3a4a}
+.sizes{display:flex;gap:6px}
+.wrap{display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;user-select:none;-webkit-user-select:none}
+.colclues{grid-column:2;display:grid;align-items:end;gap:1px;padding-bottom:4px}
+.rowclues{grid-row:2;display:grid;gap:1px;padding-right:6px}
+.cc{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px;font-size:var(--fs);font-weight:700;color:var(--ink);line-height:1.15;transition:color .3s}
+.rc{display:flex;align-items:center;justify-content:flex-end;gap:5px;font-size:var(--fs);font-weight:700;color:var(--ink);transition:color .3s}
+.cc.done,.rc.done{color:#c4c4bf}
+.cc.hl,.rc.hl{background:#eef3fa;border-radius:5px}
+.grid{grid-column:2;grid-row:2;display:grid;gap:1px;background:#d9d9d4;border:2px solid var(--ink);border-radius:6px;overflow:hidden;touch-action:none}
+.c{width:var(--cs);height:var(--cs);background:#fff;display:grid;place-items:center;cursor:pointer;transition:background-color .12s}
+.c.f{background:var(--fill)}
+.c.x::after{content:"";width:40%;height:40%;background:linear-gradient(45deg,transparent 44%,#b8b8b3 44% 56%,transparent 56%),linear-gradient(-45deg,transparent 44%,#b8b8b3 44% 56%,transparent 56%)}
+.c.b5r{box-shadow:inset -1.5px 0 0 var(--ink)}
+.c.b5b{box-shadow:inset 0 -1.5px 0 var(--ink)}
+.c.b5r.b5b{box-shadow:inset -1.5px 0 0 var(--ink),inset 0 -1.5px 0 var(--ink)}
+.c.hint{animation:pop .5s var(--ease) 2}
+.grid.won{border-color:var(--ok)}
+.grid.won .c.f{animation:reveal .6s var(--ease) both;animation-delay:calc(var(--d) * 18ms)}
+.grid.won .c.x::after{display:none}
+@keyframes reveal{50%{transform:scale(.6);border-radius:30%}100%{transform:none}}
+.modes{display:flex;gap:6px;background:var(--soft);padding:4px;border-radius:99px}
+.modes button{border:0;background:transparent;border-radius:99px;padding:8px 16px;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:7px}
+.modes button.on{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.modes i{width:14px;height:14px;border-radius:3px;background:var(--fill)}
+.modes i.x{background:none;border:1.5px solid #b8b8b3;position:relative}
+.title2{font-size:18px;font-weight:700;letter-spacing:-.01em;min-height:24px;color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="sizes" id="sizes"><button class="chip" data-n="5">Mini 5×5</button><button class="chip" data-n="10">10×10</button></div>
+    <div class="status"><span class="clockbig" id="clock">0:00</span></div>
+    <div class="wrap" id="wrap">
+      <div class="colclues" id="colclues"></div>
+      <div class="rowclues" id="rowclues"></div>
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="title2" id="picname"></div>
+    <div class="modes" id="modes"><button data-m="f" class="on"><i></i>Boya</button><button data-m="x"><i class="x"></i>İşaretle</button></div>
+    <div class="actions">
+      <button class="btn ghost" id="undoBtn">Geri al</button>
+      <button class="btn ghost" id="hintBtn">İpucu</button>
+      <button class="btn ghost" id="clearBtn">Temizle</button>
+    </div>
+  </main>
+</div>
+
+<script src="temel.js"></script>
+<script>
+/* a: resim adı, n: boyut, g: satır satır 0/1 */
+const PICS = [{"a":"Kalp","n":10,"g":"0000000000011000011011110011111111111111111111111101111111100011111100000111100000001100000000000000"},{"a":"Ev","n":10,"g":"0000110000000111100000111111000111111110111111111101111111100110110110011011011001111101100111110110"},{"a":"Kedi","n":10,"g":"0100000010011000011001111111101101111011111111111111101101110111111110001111110001101101100110000110"},{"a":"Ağaç","n":10,"g":"0000110000000111100000111111000001111000001111110001111111101111111111000011000000001100000001111000"},{"a":"Yıldız","n":10,"g":"0000110000000011000000011110001111111111011111111000111111000011111100011100111001100001101100000011"},{"a":"Balık","n":10,"g":"0000000000000011100000111111010111111110110111111011111111110111111110001111110100001110000000000000"},{"a":"Mantar","n":10,"g":"0001111000011011011011111111111011111101111111111100010010000001111000000111100000011110000011111100"},{"a":"Çan","n":10,"g":"0000110000000111100000111111000011111100001111110001111111100111111110111111111100000000000000110000"},{"a":"Elma","n":10,"g":"0000010000000010000000110110000111111100111111111011111111101111111110011111110000111110000000000000"},{"a":"Tekne","n":10,"g":"0000100000000011000000001110000000111100000011111000001000001111111111011111111000111111000000000000"},{"a":"Ördek","n":10,"g":"0011000000011110000001011100001111110000001100000000111111100111111111011111111100111111100001111100"},{"a":"Roket","n":10,"g":"0000110000000111100000010010000001111000000111100000111111000110110110110011001100001100000001001000"},{"a":"Hayalet","n":10,"g":"0001111000001111110001111111100101101110010110111001111111100111111110011111111001111111100101010100"},{"a":"Taç","n":10,"g":"0000000000100011000111011110111111111111111111111110110011011111111111111111111100000000000000000000"},{"a":"Kupa","n":10,"g":"1111111111101111110110111111010101111010001111110000011110000000110000000011000000111111000111111110"}];
+const { $, store, toast } = T;
+T.kur({
+  ad: "Piksel",
+  modDegisti: m => start(m, size, true),
+  yeni: () => start("practice", size, true), yeniEtiket: "Yeni bulmaca",
+  yardim: `<p>Kenardaki sayılara bakarak doğru kareleri boyayın ve <b>gizli resmi</b> ortaya çıkarın.</p>
+    <ul><li>Her sayı, o satırda ya da sütunda art arda boyanacak kare sayısını gösterir. <b>3 1</b>: önce 3 kare, en az bir boşluk, sonra 1 kare.</li>
+    <li>Sayıların sırası soldan sağa ve yukarıdan aşağıya doğrudur.</li>
+    <li>Boş olduğundan emin olduğunuz karelere <b>İşaretle</b> modunda × koyabilirsiniz. Parmağınızı sürükleyerek birden çok kareyi boyayabilirsiniz.</li></ul>
+    <div class="hr"></div><p class="note"><b>Mini 5×5</b> hızlıca çözülür; <b>10×10</b> her gün yeni bir resim gizler. Bütün bulmacalar tahmin gerektirmeden mantıkla çözülebilir.</p>`
+});
+
+let stats = store.get("piksel-stats", { 5: { played: 0, best: null }, 10: { played: 0, best: null }, streak: 0, best: 0, lastDay: null });
+let size = store.get("piksel-size", 5);
+{ const q = +new URLSearchParams(location.search).get("n"); if (q === 5 || q === 10) size = q; }
+let mode, day, N, sol, name, marks, history, elapsed, startedAt, hints, won, tool = "f";
+
+/* ---------- Çözücü (tek çözüm ve mantıkla çözülebilirlik) ---------- */
+const clue = line => { const out = []; let n = 0; for (const v of line) { if (v) n++; else if (n) { out.push(n); n = 0; } } if (n) out.push(n); return out; };
+function solveLine(cl, cur) {
+  const L = cur.length;
+  let acc = null;
+  const rec = (k, arr) => {
+    if (k === cl.length) {
+      const a = arr.concat(Array(L - arr.length).fill(0));
+      if (a.every((v, i) => cur[i] < 0 || cur[i] === v)) acc = acc ? acc.map((x, i) => x === a[i] ? x : -1) : a;
+      return;
+    }
+    for (let s = arr.length; s + cl[k] <= L; s++) {
+      const a = arr.concat(Array(s - arr.length).fill(0), Array(cl[k]).fill(1));
+      if (a.length < L) a.push(0);
+      if (a.some((v, i) => i < L && cur[i] >= 0 && cur[i] !== v)) continue;
+      rec(k + 1, a.slice(0, L));
+    }
+  };
+  rec(0, []);
+  return acc;
+}
+function lineSolvable(g, n) {
+  const rows = [], cols = [];
+  for (let r = 0; r < n; r++) rows.push(clue(g.slice(r * n, r * n + n)));
+  for (let c = 0; c < n; c++) cols.push(clue(Array.from({ length: n }, (_, r) => g[r * n + c])));
+  const k = Array(n * n).fill(-1);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let r = 0; r < n; r++) {
+      const res = solveLine(rows[r], k.slice(r * n, r * n + n)); if (!res) return false;
+      res.forEach((v, c) => { if (k[r * n + c] !== v) { k[r * n + c] = v; changed = true; } });
+    }
+    for (let c = 0; c < n; c++) {
+      const res = solveLine(cols[c], Array.from({ length: n }, (_, r) => k[r * n + c])); if (!res) return false;
+      res.forEach((v, r) => { if (k[r * n + c] !== v) { k[r * n + c] = v; changed = true; } });
+    }
+  }
+  return k.every(v => v >= 0);
+}
+function randomPuzzle(n, rand) {
+  for (let t = 0; t < 500; t++) {
+    const g = Array.from({ length: n * n }, () => rand() < .6 ? 1 : 0);
+    if (g.every(v => v) || !g.some(v => v)) continue;
+    if (lineSolvable(g, n)) return g;
+  }
+  return Array.from({ length: n * n }, (_, i) => (i % (n + 1)) === 0 ? 1 : 0);
+}
+
+/* ---------- Render ---------- */
+const grid = $("#grid");
+function rowClue(r) { return clue(sol.slice(r * N, r * N + N)); }
+function colClue(c) { return clue(Array.from({ length: N }, (_, r) => sol[r * N + c])); }
+function build() {
+  const vw = Math.min(innerWidth, 560);
+  const cs = Math.floor(Math.min(N === 5 ? 56 : 34, (vw - 40 - (N === 5 ? 50 : 70)) / N, (innerHeight - 360) / (N + (N === 5 ? 2.2 : 3.2))));
+  const wrap = $("#wrap");
+  wrap.style.setProperty("--cs", cs + "px");
+  wrap.style.setProperty("--fs", Math.max(11, Math.round(cs * (N === 5 ? .36 : .44))) + "px");
+  grid.style.gridTemplateColumns = `repeat(${N},var(--cs))`;
+  $("#colclues").style.gridTemplateColumns = `repeat(${N},var(--cs))`;
+  $("#rowclues").style.gridTemplateRows = `repeat(${N},var(--cs))`;
+  $("#colclues").innerHTML = Array.from({ length: N }, (_, c) => `<div class="cc" data-c="${c}">${(colClue(c).length ? colClue(c) : [0]).map(n => `<span>${n}</span>`).join("")}</div>`).join("");
+  $("#rowclues").innerHTML = Array.from({ length: N }, (_, r) => `<div class="rc" data-r="${r}">${(rowClue(r).length ? rowClue(r) : [0]).map(n => `<span>${n}</span>`).join("")}</div>`).join("");
+  grid.innerHTML = Array.from({ length: N * N }, (_, i) => {
+    const r = Math.floor(i / N), c = i % N;
+    const cls = [N === 10 && c === 4 ? "b5r" : "", N === 10 && r === 4 ? "b5b" : ""].join(" ");
+    return `<div class="c ${cls}" data-i="${i}" style="--d:${r + c}"></div>`;
+  }).join("");
+  grid.classList.remove("won");
+}
+function lineDone(cells, want) { return JSON.stringify(clue(cells.map(i => marks[i] === 1 ? 1 : 0))) === JSON.stringify(want); }
+function render(hover = -1) {
+  grid.querySelectorAll(".c").forEach((el, i) => { el.classList.toggle("f", marks[i] === 1); el.classList.toggle("x", marks[i] === 2); });
+  const hr = hover >= 0 ? Math.floor(hover / N) : -1, hc = hover >= 0 ? hover % N : -1;
+  document.querySelectorAll(".rc").forEach((el, r) => { el.classList.toggle("done", lineDone(Array.from({ length: N }, (_, c) => r * N + c), rowClue(r))); el.classList.toggle("hl", r === hr); });
+  document.querySelectorAll(".cc").forEach((el, c) => { el.classList.toggle("done", lineDone(Array.from({ length: N }, (_, r) => r * N + c), colClue(c))); el.classList.toggle("hl", c === hc); });
+  $("#undoBtn").disabled = !history.length || won;
+  $("#hintBtn").disabled = $("#clearBtn").disabled = won;
+  $("#picname").textContent = won && name ? name : "";
+  document.querySelectorAll("#sizes .chip").forEach(b => b.classList.toggle("on", +b.dataset.n === N));
+  document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.m === tool));
+}
+
+/* ---------- Boyama ---------- */
+let drag = null;
+const cellAt = (x, y) => { const el = document.elementFromPoint(x, y); const c = el && el.closest(".c"); return c && grid.contains(c) ? +c.dataset.i : -1; };
+grid.addEventListener("pointerdown", e => {
+  if (won || T.isOpen()) return;
+  const i = cellAt(e.clientX, e.clientY);
+  if (i < 0) return;
+  e.preventDefault();
+  grid.setPointerCapture(e.pointerId);
+  tickStart();
+  history.push(marks.slice()); if (history.length > 200) history.shift();
+  const want = tool === "f" ? 1 : 2;
+  // ilk karenin yeni durumu bütün sürükleme boyunca uygulanır
+  const value = marks[i] === want ? 0 : want;
+  drag = { value, from: marks[i] };
+  marks[i] = value;
+  render(i);
+});
+grid.addEventListener("pointermove", e => {
+  const i = cellAt(e.clientX, e.clientY);
+  if (!drag) { if (e.pointerType === "mouse") render(i); return; }
+  if (i < 0) return;
+  // sürüklerken yalnızca başlangıçtaki durumla aynı olan kareler değişir
+  if (marks[i] === drag.from && marks[i] !== drag.value) { marks[i] = drag.value; render(i); }
+});
+const end = () => { if (!drag) return; drag = null; save(); render(); check(); };
+grid.addEventListener("pointerup", end);
+grid.addEventListener("pointercancel", end);
+grid.addEventListener("pointerleave", () => { if (!drag) render(); });
+document.querySelectorAll("#modes button").forEach(b => b.onclick = () => { tool = b.dataset.m; render(); });
+$("#undoBtn").onclick = () => { if (!history.length || won) return; marks = history.pop(); save(); render(); };
+$("#clearBtn").onclick = () => { if (won || !marks.some(Boolean)) return; history.push(marks.slice()); marks = marks.map(() => 0); save(); render(); };
+$("#hintBtn").onclick = () => {
+  if (won) return;
+  tickStart();
+  // önce yanlış boyanmış bir kareyi, yoksa boyanmamış doğru bir kareyi düzelt
+  let i = marks.findIndex((m, k) => m === 1 && !sol[k]);
+  if (i < 0) i = T.shuffle(sol.map((v, k) => v && marks[k] !== 1 ? k : -1).filter(k => k >= 0))[0];
+  if (i === undefined) return;
+  history.push(marks.slice());
+  marks[i] = sol[i] ? 1 : 2;
+  hints++; elapsed += 15;
+  const el = grid.children[i]; el.classList.remove("hint"); void el.offsetWidth; el.classList.add("hint");
+  toast("İpucu: +15 saniye");
+  save(); render(); check();
+};
+document.addEventListener("keydown", e => {
+  if (T.isOpen()) return;
+  if ((e.metaKey || e.ctrlKey) && e.key === "z") { e.preventDefault(); $("#undoBtn").click(); }
+  else if (e.key === "x" || e.key === "X") { tool = tool === "f" ? "x" : "f"; render(); }
+});
+document.querySelectorAll("#sizes .chip").forEach(b => b.onclick = () => { if (+b.dataset.n !== N) start(mode, +b.dataset.n); });
+addEventListener("resize", () => { if (N) { build(); render(); if (won) grid.classList.add("won"); } });
+
+/* ---------- Süre ---------- */
+const now = () => elapsed + (startedAt ? (Date.now() - startedAt) / 1000 : 0);
+function tickStart() { if (!won && !startedAt) startedAt = Date.now(); }
+function tickStop() { if (startedAt) { elapsed += (Date.now() - startedAt) / 1000; startedAt = null; } }
+setInterval(() => { $("#clock").textContent = T.fmt(now()); }, 250);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { tickStop(); save(); } });
+
+/* ---------- Oyun ---------- */
+function check() {
+  // ipuçlarının hepsi sağlanıyorsa çözülmüştür (bulmacalar tek çözümlü)
+  for (let r = 0; r < N; r++) if (!lineDone(Array.from({ length: N }, (_, c) => r * N + c), rowClue(r))) return;
+  for (let c = 0; c < N; c++) if (!lineDone(Array.from({ length: N }, (_, r) => r * N + c), colClue(c))) return;
+  tickStop();
+  won = true;
+  marks = marks.map((m, i) => sol[i] ? 1 : 2);
+  save(); render();
+  grid.classList.add("won");
+  if (mode === "daily") {
+    const st = stats[N];
+    st.played++;
+    st.best = st.best === null ? Math.round(elapsed) : Math.min(st.best, Math.round(elapsed));
+    T.seriGuncelle(stats, day, true);
+    store.set("piksel-stats", stats);
+  }
+  toast(name ? `${name}! ${T.fmt(elapsed)}` : `Çözdünüz! ${T.fmt(elapsed)}`, 1900);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1800);
+}
+function key() { return `piksel-${mode === "daily" ? "daily" : "practice"}-${size}`; }
+function start(m, n = size, fresh = false) {
+  tickStop();
+  mode = m; size = n; N = n; store.set("piksel-size", n);
+  day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(key(), null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (!s) {
+    const rand = m === "daily" ? T.rng(day * 6007 + n) : Math.random;
+    if (n === 10) {
+      const k = m === "daily" ? ((day * 7 + 3) % PICS.length + PICS.length) % PICS.length : Math.floor(rand() * PICS.length);
+      s = { sol: [...PICS[k].g].map(Number), name: PICS[k].a };
+    } else s = { sol: randomPuzzle(5, rand), name: "" };
+    Object.assign(s, { marks: Array(n * n).fill(0), elapsed: 0, hints: 0, won: false });
+  }
+  ({ sol, name, marks, elapsed, hints, won } = s);
+  history = []; startedAt = null;
+  save();
+  build(); render();
+  if (won) grid.classList.add("won");
+  T.altSatir(m, day, ["Yeni bulmaca", () => start("practice", size, true)], n === 5 ? "Mini 5×5" : "10×10");
+  T.aktifMod(m);
+}
+function save() { store.set(key(), { day, sol, name, marks, elapsed: now(), hints, won }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${won ? `<div class="result"><div class="big">${T.fmt(elapsed)}</div><p>${name ? `<b>${name}</b> · ` : ""}${N}×${N}${hints ? ` · ${hints} ipucu` : ""}</p></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats[5].played + stats[10].played, "Çözülen"], [stats[5].best === null ? "–" : T.fmt(stats[5].best), "En İyi 5×5"], [stats[10].best === null ? "–" : T.fmt(stats[10].best), "En İyi 10×10"], [T.seri(stats), "Seri"]])}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: won })}`);
+// resmi paylaşmayız: aynı günün bulmacasını başkalarına açık eder
+T.paylasim(() => `Piksel #${day + 1} · ${N === 5 ? "Mini 5×5" : "10×10"} · ${T.fmt(elapsed)}${hints ? ` (${hints} ipucu)` : " · ipuçsuz"} 🖼️`);
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily", size);
+T.ilkZiyaret("piksel-seen");
+</script>
+</body>
+</html>

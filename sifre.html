@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Şifre — Günlük Renk Şifresi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+:root{--peg:min(44px, calc((100vw - 140px) / 4.6), calc((100dvh - 330px) / 11.5))}
+.rows{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;align-items:center;gap:12px;padding:4px 10px;border-radius:12px;transition:background-color .25s}
+.row.cur{background:var(--soft)}
+.row.shake{animation:shake .45s var(--ease)}
+.row .n{width:18px;font-size:12px;color:var(--muted);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.pegs{display:flex;gap:8px}
+.peg{width:var(--peg);height:var(--peg);border-radius:50%;border:2px dashed #d6d6d1;display:grid;place-items:center;font-size:calc(var(--peg) * .36);font-weight:700;color:rgba(255,255,255,.9);transition:transform .15s var(--ease);cursor:default;padding:0;background:transparent}
+.row.cur .peg{cursor:pointer}
+.peg.f{border:0;box-shadow:inset 0 -3px 0 rgba(0,0,0,.12)}
+.peg.f.in{animation:pop .25s var(--ease)}
+.fb{display:grid;grid-template-columns:repeat(2,calc(var(--peg) * .3));gap:4px}
+.fb i{width:calc(var(--peg) * .3);height:calc(var(--peg) * .3);border-radius:50%;background:var(--key)}
+.fb i.b{background:var(--ink)}
+.fb i.w{background:#fff;box-shadow:inset 0 0 0 2px var(--ink)}
+.fb.in i{animation:pop .3s var(--ease) both;animation-delay:calc(var(--d) * 90ms)}
+.secret{display:flex;align-items:center;gap:12px;padding:6px 10px;border-radius:12px;background:var(--ink);color:#fff}
+.secret small{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.7;width:60px}
+.secret .peg{border-color:rgba(255,255,255,.35)}
+.palette{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.pc{width:calc(var(--peg) * 1.05);height:calc(var(--peg) * 1.05);border-radius:50%;border:0;cursor:pointer;font-weight:700;color:rgba(255,255,255,.92);font-size:calc(var(--peg) * .38);box-shadow:inset 0 -3px 0 rgba(0,0,0,.14);transition:transform .15s var(--ease)}
+.pc:active{transform:scale(.9)}
+.legend{display:flex;flex-direction:column;gap:8px;font-size:14px}
+.legend div{display:flex;align-items:center;gap:10px}
+.legend .fb{grid-template-columns:repeat(2,12px)}
+.legend .fb i{width:12px;height:12px}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="rows" id="rows"></div>
+    <div class="palette" id="palette"></div>
+    <div class="actions">
+      <button class="btn ghost" id="delBtn">Sil</button>
+      <button class="btn" id="okBtn">Kontrol et</button>
+    </div>
+  </main>
+</div>
+
+<script src="temel.js"></script>
+<script>
+const PEGS = 4, MAX = 10;
+const COLORS = ["#e2604a", "#f0a33b", "#e8c53d", "#5daa6f", "#4f8fd6", "#9a6fc8"];
+const { $, store, toast } = T;
+
+T.kur({
+  ad: "Şifre",
+  modDegisti: m => start(m, true),
+  yeni: () => start("practice", true), yeniEtiket: "Yeni şifre",
+  altyazi: "Her gün yeni bir şifre.",
+  yardim: `<p>6 renkten oluşan <b>4 haneli gizli şifreyi</b> 10 denemede çözün. Bir renk birden fazla kez kullanılmış olabilir.</p>
+    <ul><li>Alttaki renklere dokunarak satırı doldurun; yanlış rengi silmek için ona dokunun.</li>
+    <li>Her denemeden sonra ipucu noktaları gelir:</li></ul>
+    <div class="legend">
+      <div><span class="fb"><i class="b"></i></span><span><b>Siyah</b>: doğru renk, doğru yer</span></div>
+      <div><span class="fb"><i class="w"></i></span><span><b>Beyaz</b>: doğru renk, yanlış yer</span></div>
+    </div>
+    <div class="hr"></div><p class="note">Noktaların sırası hangi hanenin doğru olduğunu söylemez. Renk körlüğü için her rengin üzerinde bir rakam vardır.</p>`
+});
+
+let stats = store.get("sifre-stats", { played: 0, wins: 0, streak: 0, best: 0, lastDay: null, dist: Array(MAX).fill(0) });
+let mode, day, secret, guesses, cur, over, won;
+
+function score(g) {
+  let b = 0, w = 0;
+  const cs = Array(6).fill(0), cg = Array(6).fill(0);
+  for (let i = 0; i < PEGS; i++) { if (g[i] === secret[i]) b++; else { cs[secret[i]]++; cg[g[i]]++; } }
+  for (let k = 0; k < 6; k++) w += Math.min(cs[k], cg[k]);
+  return [b, w];
+}
+const pegHTML = (c, cls = "") => c === undefined || c === null ? `<span class="peg ${cls}"></span>` : `<span class="peg f ${cls}" style="background:${COLORS[c]}">${c + 1}</span>`;
+
+/* ---------- Render ---------- */
+function render(fresh = -1, bumped = -1) {
+  let html = "";
+  if (over) html += `<div class="secret"><small>Şifre</small><div class="pegs">${secret.map(c => pegHTML(c)).join("")}</div></div>`;
+  for (let r = 0; r < MAX; r++) {
+    const g = guesses[r], isCur = !over && r === guesses.length;
+    const pegs = g || (isCur ? cur : []);
+    const [b, w] = g ? score(g) : [0, 0];
+    const fb = Array.from({ length: PEGS }, (_, k) => k < b ? "b" : k < b + w ? "w" : "");
+    html += `<div class="row${isCur ? " cur" : ""}" data-r="${r}"><span class="n">${r + 1}</span>
+      <div class="pegs">${Array.from({ length: PEGS }, (_, k) => isCur ? `<button class="peg${pegs[k] !== undefined && pegs[k] !== null ? " f" : ""}${k === bumped ? " in" : ""}" data-k="${k}" ${pegs[k] !== undefined && pegs[k] !== null ? `style="background:${COLORS[pegs[k]]}"` : ""}>${pegs[k] !== undefined && pegs[k] !== null ? pegs[k] + 1 : ""}</button>` : pegHTML(pegs[k])).join("")}</div>
+      <div class="fb${r === fresh ? " in" : ""}">${fb.map((c, k) => `<i class="${c}" style="--d:${k}"></i>`).join("")}</div></div>`;
+  }
+  $("#rows").innerHTML = html;
+  $("#okBtn").disabled = over || cur.filter(c => c !== null && c !== undefined).length < PEGS;
+  $("#delBtn").disabled = over || !cur.some(c => c !== null && c !== undefined);
+  $("#palette").style.visibility = over ? "hidden" : "";
+}
+$("#palette").innerHTML = COLORS.map((c, k) => `<button class="pc" data-c="${k}" style="background:${c}" aria-label="Renk ${k + 1}">${k + 1}</button>`).join("");
+$("#palette").addEventListener("click", e => {
+  const b = e.target.closest(".pc");
+  if (!b || over) return;
+  const k = cur.findIndex(c => c === null || c === undefined);
+  const slot = k < 0 ? (cur.length < PEGS ? cur.length : -1) : k;
+  if (slot < 0) return;
+  cur[slot] = +b.dataset.c;
+  save(); render(-1, slot);
+});
+$("#rows").addEventListener("click", e => {
+  const p = e.target.closest(".row.cur .peg");
+  if (!p || over) return;
+  cur[+p.dataset.k] = null;
+  save(); render();
+});
+$("#delBtn").onclick = () => {
+  for (let k = PEGS - 1; k >= 0; k--) if (cur[k] !== null && cur[k] !== undefined) { cur[k] = null; break; }
+  save(); render();
+};
+$("#okBtn").onclick = submit;
+document.addEventListener("keydown", e => {
+  if (T.isOpen() || over) return;
+  if (e.key >= "1" && e.key <= "6") document.querySelector(`.pc[data-c="${+e.key - 1}"]`).click();
+  else if (e.key === "Backspace") $("#delBtn").click();
+  else if (e.key === "Enter") submit();
+});
+
+/* ---------- Oyun ---------- */
+function submit() {
+  if (over) return;
+  const g = Array.from({ length: PEGS }, (_, k) => cur[k]);
+  if (g.some(c => c === null || c === undefined)) { document.querySelector(".row.cur")?.classList.add("shake"); return toast("Dört rengi de seçin"); }
+  guesses.push(g);
+  cur = [];
+  const [b] = score(g);
+  if (b === PEGS) { over = true; won = true; }
+  else if (guesses.length >= MAX) { over = true; won = false; }
+  save();
+  render(guesses.length - 1);
+  if (over) finish();
+}
+function finish() {
+  if (mode === "daily") {
+    stats.played++;
+    if (won) { stats.wins++; stats.dist[guesses.length - 1]++; }
+    T.seriGuncelle(stats, day, won);
+    store.set("sifre-stats", stats);
+  }
+  toast(won ? ["Akıl okudunuz!", "Dahi!", "Muhteşem!", "Harika!", "Çok iyi!", "Güzel!", "İyi iş!", "Fena değil!", "Kıl payı!", "Son anda!"][guesses.length - 1] : "Şifre çözülemedi", 1900);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1500);
+}
+function start(m, fresh = false) {
+  mode = m;
+  let s;
+  if (m === "daily") {
+    day = T.dayIndex();
+    s = store.get("sifre-daily", null);
+    if (!s || s.day !== day) { const r = T.rng(day * 2654435761 + 7); s = { secret: Array.from({ length: PEGS }, () => Math.floor(r() * 6)), guesses: [], cur: [] }; }
+  } else {
+    s = fresh ? null : store.get("sifre-practice", null);
+    if (!s) s = { secret: Array.from({ length: PEGS }, () => Math.floor(Math.random() * 6)), guesses: [], cur: [] };
+  }
+  ({ secret, guesses, cur } = s);
+  won = guesses.some(g => score(g)[0] === PEGS);
+  over = won || guesses.length >= MAX;
+  save();
+  render();
+  T.altSatir(m, day, ["Yeni şifre", () => start("practice", true)]);
+  T.aktifMod(m);
+}
+function save() {
+  const st = { secret, guesses, cur };
+  if (mode === "daily") store.set("sifre-daily", { day, ...st });
+  else store.set("sifre-practice", st);
+}
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${over ? `<div class="result"><div class="big">${won ? guesses.length + "/" + MAX : "X/" + MAX}</div><p>${won ? "denemede şifreyi çözdünüz" : "Şifre çözülemedi"}</p></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats.played, "Oynanan"], [stats.played ? Math.round(stats.wins / stats.played * 100) : 0, "Kazanma %"], [T.seri(stats), "Güncel Seri"], [stats.best || 0, "En İyi Seri"]])}
+  <h3>Deneme Dağılımı</h3>${T.dagilim(stats.dist, stats.dist.map((_, i) => i + 1), mode === "daily" && won ? guesses.length - 1 : -1)}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: over })}`);
+T.paylasim(() => {
+  const rows = guesses.map(g => { const [b, w] = score(g); return "⚫".repeat(b) + "⚪".repeat(w) + "▫️".repeat(PEGS - b - w); }).join("\n");
+  return `Şifre #${day + 1} ${won ? guesses.length : "X"}/${MAX}\n${rows}`;
+});
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily");
+T.ilkZiyaret("sifre-seen");
+</script>
+</body>
+</html>
