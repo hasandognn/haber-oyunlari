@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#ffffff">
+<title>Oyun Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#efefec; --soft:#f7f7f5;
+  --ok:#6aa780; --ok-bg:#eaf3ed; --warn:#b8862b; --warn-bg:#fbf3df; --bad:#c4553f; --bad-bg:#fbefec;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--soft);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+
+header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar{max-width:980px;margin:0 auto;height:60px;padding:0 20px;display:flex;align-items:center;gap:14px}
+.logo{font-weight:700;font-size:19px;letter-spacing:-.02em}
+.logo small{font-weight:500;color:var(--muted);font-size:13px;margin-left:8px}
+.spacer{flex:1}
+.pill{display:none;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--warn);background:var(--warn-bg);border-radius:99px;padding:6px 12px}
+.pill.on{display:inline-flex}
+.pill i{width:7px;height:7px;border-radius:50%;background:currentColor}
+nav.tabs{max-width:980px;margin:0 auto;padding:0 12px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:transparent;padding:12px 12px 13px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .2s,border-color .2s}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tab b{font-weight:600;font-size:11.5px;background:var(--key);border-radius:99px;padding:2px 7px;margin-left:5px;color:var(--ink)}
+
+main{max-width:980px;margin:0 auto;padding:22px 20px 60px}
+section{display:none}
+section.on{display:block;animation:in .35s var(--ease)}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h1{font-size:24px;letter-spacing:-.02em;margin:0 0 6px}
+.lead{color:#55555a;font-size:14.5px;line-height:1.55;margin:0 0 18px;max-width:680px}
+.lead code,.hint code{background:var(--key);border-radius:5px;padding:1px 5px;font-size:13px}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+.card h2{font-size:15px;margin:0 0 12px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.card h2 span{font-weight:500;color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.field{flex:1;min-width:0;height:42px;border:1.5px solid var(--line-strong);border-radius:11px;padding:0 12px;font-size:15px;background:#fff;outline:none;transition:border-color .2s,box-shadow .2s}
+.field:focus{border-color:var(--ink);box-shadow:0 0 0 4px rgba(29,29,31,.06)}
+textarea.field{height:auto;min-height:74px;padding:10px 12px;resize:vertical;line-height:1.45}
+select.field{flex:0 0 auto;padding-right:8px}
+.btn{border:0;border-radius:11px;background:var(--ink);color:#fff;font-weight:600;font-size:14px;height:42px;padding:0 16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:opacity .2s,transform .12s;white-space:nowrap}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line-strong)}
+.btn.sm{height:32px;padding:0 11px;font-size:12.5px;border-radius:9px}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.5;margin:8px 0 0}
+.msg{font-size:13px;margin-top:8px;min-height:18px}
+.msg.bad{color:var(--bad)}
+.msg.ok{color:#4b8a61}
+
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.preset{border:1px dashed var(--line-strong);background:#fff;border-radius:99px;padding:5px 11px;font-size:12.5px;font-weight:600;cursor:pointer;color:#55555a;transition:background .2s,border-color .2s}
+.preset:hover{background:var(--soft);border-color:var(--ink);color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;max-height:340px;overflow:auto;align-content:flex-start}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--bad-bg);color:#9b3f2c;border-radius:8px;padding:4px 4px 4px 9px;font-size:13px;font-weight:600}
+.chip.add{background:var(--ok-bg);color:#3f7a54}
+.chip.gray{background:var(--key);color:#55555a;padding:4px 9px}
+.chip button{border:0;background:transparent;width:20px;height:20px;border-radius:5px;cursor:pointer;color:inherit;display:grid;place-items:center;opacity:.6}
+.chip button:hover{opacity:1;background:rgba(0,0,0,.06)}
+.chip button svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round}
+.chip.new{animation:pop .4s var(--ease)}
+@keyframes pop{0%{transform:scale(.7)}60%{transform:scale(1.08)}100%{transform:none}}
+.empty{color:var(--muted);font-size:13px}
+.tools{display:flex;gap:8px;align-items:center;margin-top:12px}
+.tools .field{height:34px;font-size:13.5px;border-radius:9px}
+.tools small{color:var(--muted);font-size:12.5px;white-space:nowrap}
+
+.tester{display:flex;gap:8px;align-items:center;margin-top:4px}
+.verdict{font-size:13.5px;font-weight:600;padding:9px 12px;border-radius:10px;background:var(--soft);margin-top:10px;display:none}
+.verdict.on{display:block}
+.verdict.bad{background:var(--bad-bg);color:#9b3f2c}
+.verdict.ok{background:var(--ok-bg);color:#3f7a54}
+
+.impact{display:flex;flex-direction:column;gap:10px}
+.game{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.game .top{display:flex;align-items:center;gap:10px}
+.game .name{font-weight:700;font-size:14px;flex:1}
+.badge{font-size:12px;font-weight:700;border-radius:99px;padding:3px 9px;white-space:nowrap}
+.badge.ok{background:var(--ok-bg);color:#3f7a54}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.bad{background:var(--bad-bg);color:var(--bad)}
+.game .note{font-size:12px;color:var(--muted);margin:4px 0 0}
+.game .words{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.game .words span{font-size:12px;background:var(--bad-bg);color:#9b3f2c;border-radius:6px;padding:2px 7px}
+.game .words span.more{background:var(--key);color:#55555a}
+.bar-mini{height:5px;border-radius:99px;background:var(--key);margin-top:8px;overflow:hidden}
+.bar-mini i{display:block;height:100%;background:var(--ok);border-radius:99px;transition:width .5s var(--ease)}
+
+.groups{display:flex;flex-direction:column;gap:10px}
+.grp{display:grid;grid-template-columns:14px 1.2fr repeat(4,1fr);gap:6px;align-items:center}
+.grp .dot{width:12px;height:12px;border-radius:4px}
+.grp .field{height:38px;font-size:14px;padding:0 10px}
+@media (max-width:640px){.grp{grid-template-columns:14px 1fr 1fr}.grp .field.t{grid-column:2 / -1}.grp .field:not(.t){grid-column:auto}}
+.added{display:flex;flex-direction:column;gap:10px}
+.puz{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+.puz .gs{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.puz .gs div{border-radius:7px;padding:5px 9px}
+.puz .gs b{text-transform:uppercase;font-size:11px;letter-spacing:.06em;margin-right:6px}
+.ph{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.ph div{flex:1}
+.ph small{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#4f78a8}
+.ph b{display:block;font-size:15px;margin:2px 0}
+.ph p{margin:0;font-size:13px;color:#55555a}
+
+pre.code{background:#1d1d1f;color:#e9e9e5;border-radius:12px;padding:14px;font-size:12px;line-height:1.5;max-height:340px;overflow:auto;margin:0;white-space:pre-wrap;word-break:break-word}
+.form{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;align-items:center;font-size:13.5px}
+.form label{color:#55555a;font-weight:600}
+.form .field{height:38px;font-size:14px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:#55555a;grid-column:2}
+.steps{margin:0;padding-left:18px;font-size:13.5px;line-height:1.7;color:#3a3a3d}
+
+#toasts{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s,transform .35s}
+.toast.out{opacity:0;transform:translateY(6px)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo">Oyun Paneli<small>Haber Oyunları</small></div>
+    <div class="spacer"></div>
+    <span class="pill" id="dirty"><i></i>Yayınlanmamış değişiklik</span>
+    <button class="btn ghost sm" id="revertBtn" hidden>Geri al</button>
+    <a class="btn ghost sm" href="index.html" style="text-decoration:none">Oyunlar</a>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-tab="yasak">Yasaklı kelimeler<b id="nBan">0</b></button>
+    <button class="tab" data-tab="kelime">Kelime ekle<b id="nWord">0</b></button>
+    <button class="tab" data-tab="baglanti">Bağlantı bulmacası<b id="nBag">0</b></button>
+    <button class="tab" data-tab="deyim">Deyim ekle<b id="nDey">0</b></button>
+    <button class="tab" data-tab="yayin">Yayınla</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Yasaklı kelimeler -->
+  <section id="t-yasak" class="on">
+    <h1>Yasaklı kelimeler</h1>
+    <p class="lead">Buradaki kelimeler hiçbir oyunda cevap, tahmin, ipucu ya da bulmaca olarak görünmez. Bir kelimeyi yasaklamak ek almış hâllerini de yasaklar (<code>alkol</code> → alkollü, alkolü). Sonuna yıldız koyarsanız o harflerle başlayan her şey yasaklanır (<code>bira*</code>).</p>
+    <div class="grid">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div class="card">
+          <h2>Kelime ekle</h2>
+          <div class="row">
+            <input class="field" id="banInput" placeholder="ör. viski, nargile, kumar*" autocomplete="off" autocapitalize="off" spellcheck="false">
+            <button class="btn" id="banAdd">Yasakla</button>
+          </div>
+          <p class="hint">Virgülle ayırarak birden çok kelime girebilirsiniz. Çok kelimeli ifadeler (<code>kumar oynamak</code>) Deyim gibi söz oyunlarında aranır.</p>
+          <div class="presets" id="presets"></div>
+        </div>
+        <div class="card">
+          <h2>Liste <span id="banCount"></span></h2>
+          <div class="tools"><input class="field" id="banSearch" placeholder="Listede ara" autocomplete="off"><small id="banShown"></small></div>
+          <div class="chips" id="banList"></div>
+        </div>
+        <div class="card">
+          <h2>Kelime dene</h2>
+          <div class="tester"><input class="field" id="testInput" placeholder="ör. alkollü, birader, sigaralar" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+          <div class="verdict" id="verdict"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Oyunlara etkisi <span id="impactSum"></span></h2>
+        <div class="impact" id="impact"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 harfli kelimeler -->
+  <section id="t-kelime">
+    <h1>Kelime ekle</h1>
+    <p class="lead">Eklenen 5 harfli kelimeler <b>Kelime, Sınırsız Kelime, Dörtlü, Sekizli ve İnat</b> oyunlarında cevap olarak çıkabilir ve tahmin olarak kabul edilir.</p>
+    <div class="card" style="max-width:640px">
+      <div class="row">
+        <input class="field" id="wordInput" placeholder="ör. çilek, kavun, tarla" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="btn" id="wordAdd">Ekle</button>
+      </div>
+      <div class="msg" id="wordMsg"></div>
+      <div class="chips" id="wordList"></div>
+    </div>
+  </section>
+
+  <!-- Bağlantı -->
+  <section id="t-baglanti">
+    <h1>Bağlantı bulmacası</h1>
+    <p class="lead">Dört grup, her grupta dört kelime. Grupları kolaydan zora sırayla yazın: sarı en kolay, mor en zor. Bir kelime birden fazla gruba uyuyor gibi görünebilir ama bulmacanın tek doğru çözümü olmalı.</p>
+    <div class="grid">
+      <div class="card">
+        <h2>Yeni bulmaca</h2>
+        <div class="groups" id="groups"></div>
+        <div class="row" style="margin-top:14px"><button class="btn" id="bagAdd">Bulmacayı ekle</button><button class="btn ghost" id="bagClear">Temizle</button></div>
+        <div class="msg" id="bagMsg"></div>
+      </div>
+      <div class="card">
+        <h2>Eklenen bulmacalar <span id="bagCount"></span></h2>
+        <div class="added" id="bagList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Deyim -->
+  <section id="t-deyim">
+    <h1>Deyim ekle</h1>
+    <p class="lead">Atasözü, deyim ya da kalıp söz ekleyin. Oyunda harfler tek tek tahmin edildiği için yalnızca harf ve boşluk kullanın; anlam, oyun bitince gösterilir.</p>
+    <div class="grid">
+      <div class="card">
+        <h2>Yeni söz</h2>
+        <div class="row"><select class="field" id="dTur"><option>Atasözü</option><option>Deyim</option><option>Kalıp söz</option></select><input class="field" id="dSoz" placeholder="ör. görünen köy kılavuz istemez" autocomplete="off" spellcheck="false"></div>
+        <div class="row" style="margin-top:8px"><input class="field" id="dAnlam" placeholder="Anlamı (oyun bitince gösterilir)" autocomplete="off"></div>
+        <div class="row" style="margin-top:12px"><button class="btn" id="dAdd">Sözü ekle</button></div>
+        <div class="msg" id="dMsg"></div>
+      </div>
+      <div class="card">
+        <h2>Eklenen sözler <span id="dCount"></span></h2>
+        <div class="added" id="dList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Yayınla -->
+  <section id="t-yayin">
+    <h1>Yayınla</h1>
+    <p class="lead">Değişiklikler bu tarayıcıda taslak olarak tutulur. Oyunlara yansıması için <code>ayarlar.js</code> dosyasını yayınlayın: dosyayı indirip sitedeki eskisinin yerine koyun ya da doğrudan GitHub'a kaydedin.</p>
+    <div class="grid">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div class="card">
+          <h2>Dosya</h2>
+          <div class="row"><button class="btn" id="dlBtn"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>ayarlar.js indir</button><button class="btn ghost" id="copyBtn">Kopyala</button></div>
+          <p class="hint">İndirdiğiniz dosyayı oyunların bulunduğu klasöre <code>ayarlar.js</code> adıyla koyun.</p>
+        </div>
+        <div class="card">
+          <h2>GitHub'a kaydet</h2>
+          <div class="form">
+            <label for="ghRepo">Depo</label><input class="field" id="ghRepo" value="hasandognn/haber-oyunlari" spellcheck="false">
+            <label for="ghBranch">Dal</label><input class="field" id="ghBranch" value="main" spellcheck="false">
+            <label for="ghPath">Dosya</label><input class="field" id="ghPath" value="ayarlar.js" spellcheck="false">
+            <label for="ghToken">Erişim anahtarı</label><input class="field" id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+            <label class="check"><input type="checkbox" id="ghRemember">Bu tarayıcıda hatırla</label>
+          </div>
+          <div class="row" style="margin-top:14px"><button class="btn" id="ghSave">GitHub'a kaydet</button></div>
+          <div class="msg" id="ghMsg"></div>
+          <p class="hint">Anahtar yalnızca GitHub'a gönderilir. GitHub'da <b>Settings → Developer settings → Fine-grained tokens</b> bölümünden, sadece bu depo için <b>Contents: Read and write</b> izniyle oluşturun. Kaydettikten sonra site birkaç dakika içinde güncellenir.</p>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Önizleme <span>ayarlar.js</span></h2>
+        <pre class="code" id="preview"></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
+<script src="panel-veri.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const low = s => String(s ?? "").trim().toLocaleLowerCase("tr-TR");
+const up = s => String(s).toLocaleUpperCase("tr-TR");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cmp = new Intl.Collator("tr").compare;
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const X = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const LETTERS = /^[a-zçğıöşüâîû]+$/;
+const VERI = window.PANEL_VERI || { oyunlar: [] };
+
+const PRESETS = {
+  "Alkol": ["alkol", "alkolik", "içki", "bira", "şarap", "viski", "votka", "rakı", "tekila", "konyak", "likör", "şampanya", "kokteyl", "cin", "meyhane", "sarhoş", "sarhoşluk"],
+  "Tütün ve uyuşturucu": ["sigara", "tütün", "puro", "nargile", "pipo", "esrar", "eroin", "kokain", "uyuşturucu", "afyon", "haşhaş", "bonzai"],
+  "Kumar": ["kumar", "kumarhane", "kumarbaz", "bahis", "iddaa", "rulet", "poker"],
+  "Cinsellik": ["eskort", "fahişe", "genelev", "seks", "seksi", "cinsel", "porno", "erotik", "çıplak", "striptiz"],
+  "Şiddet": ["silah", "tabanca", "tüfek", "bomba", "intihar", "cinayet", "katil", "terör", "terörist"]
+};
+
+/* ---------- Durum ---------- */
+const clone = o => JSON.parse(JSON.stringify(o));
+function normal(a) {
+  a = a || {};
+  const e = a.ekle || {};
+  return { yasakli: [...(a.yasakli || [])], ekle: { kelime: [...(e.kelime || [])], baglanti: [...(e.baglanti || [])], deyim: [...(e.deyim || [])] } };
+}
+let base = normal(window.OYUN_AYARLARI);
+// GitHub'a yeni kaydedildiyse site birkaç dakika eski dosyayı sunar; o arada son yayını esas al
+const lastPub = store.get("panel-son-yayin", null);
+if (lastPub && Date.now() - lastPub.at < 15 * 60e3 && JSON.stringify(lastPub.data) !== JSON.stringify(base)) base = normal(lastPub.data);
+else store.del("panel-son-yayin");
+let draft = normal(store.get("panel-taslak", null) || base);
+let F = Filtre.olustur(draft);
+
+function changed() {
+  F = Filtre.olustur(draft);
+  store.set("panel-taslak", draft);
+  renderAll();
+}
+function isDirty() { return JSON.stringify(normal(draft)) !== JSON.stringify(base); }
+
+/* ---------- Sekmeler ---------- */
+$("#tabs").addEventListener("click", e => {
+  const t = e.target.closest(".tab");
+  if (!t) return;
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b === t));
+  document.querySelectorAll("main section").forEach(s => s.classList.toggle("on", s.id === "t-" + t.dataset.tab));
+  history.replaceState(null, "", "#" + t.dataset.tab);
+});
+if (location.hash) { const t = document.querySelector(`.tab[data-tab="${location.hash.slice(1)}"]`); if (t) t.click(); }
+
+/* ---------- Yasaklı kelimeler ---------- */
+function addBans(list) {
+  const have = new Set(draft.yasakli.map(low));
+  const added = [];
+  for (let t of list) {
+    t = low(t).replace(/\s+/g, " ");
+    if (!t || have.has(t)) continue;
+    if (!/^[a-zçğıöşüâîû ]+\*?$/.test(t)) { toast(`“${t}” geçersiz: yalnızca harf, boşluk ve sonda * olabilir`); continue; }
+    draft.yasakli.push(t); have.add(t); added.push(t);
+  }
+  if (added.length) { lastAdded = new Set(added); changed(); toast(added.length === 1 ? `“${added[0]}” yasaklandı` : `${added.length} kelime yasaklandı`); }
+  return added;
+}
+let lastAdded = new Set();
+$("#banAdd").onclick = () => { const v = $("#banInput").value; if (addBans(v.split(/[,;\n]+/)).length || !v.trim()) $("#banInput").value = ""; $("#banInput").focus(); };
+$("#banInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#banAdd").click(); });
+$("#presets").innerHTML = Object.keys(PRESETS).map(k => `<button class="preset" data-p="${esc(k)}">+ ${esc(k)}</button>`).join("");
+$("#presets").onclick = e => { const b = e.target.closest(".preset"); if (b) addBans(PRESETS[b.dataset.p]); };
+$("#banSearch").oninput = renderBans;
+$("#banList").onclick = e => {
+  const b = e.target.closest("button[data-w]");
+  if (!b) return;
+  draft.yasakli = draft.yasakli.filter(w => low(w) !== b.dataset.w);
+  changed();
+  toast(`“${b.dataset.w}” listeden çıkarıldı`);
+};
+function renderBans() {
+  const q = low($("#banSearch").value);
+  const all = draft.yasakli.slice().sort(cmp);
+  const shown = q ? all.filter(w => w.includes(q)) : all;
+  $("#banCount").textContent = `${all.length} kelime`;
+  $("#banShown").textContent = q ? `${shown.length} sonuç` : "";
+  $("#banList").innerHTML = shown.length
+    ? shown.map(w => `<span class="chip${lastAdded.has(w) ? " new" : ""}">${esc(w)}<button data-w="${esc(w)}" aria-label="${esc(w)} kelimesini çıkar">${X}</button></span>`).join("")
+    : `<span class="empty">${q ? "Eşleşen kelime yok." : "Henüz yasaklı kelime yok."}</span>`;
+  lastAdded = new Set();
+}
+$("#testInput").oninput = renderTest;
+function renderTest() {
+  const v = low($("#testInput").value), el = $("#verdict");
+  if (!v) { el.className = "verdict"; return; }
+  const isPhrase = v.includes(" ");
+  const bad = isPhrase ? F.ifadeYasak(v) : F.yasak(v);
+  const why = !isPhrase && bad ? F.neden(v) : null;
+  el.className = "verdict on " + (bad ? "bad" : "ok");
+  el.textContent = bad ? `Yasaklı${why && why !== v ? ` — “${why}” kuralına takılıyor` : ""}. Oyunlarda görünmez.` : "Serbest. Oyunlarda kullanılabilir.";
+}
+
+/* Oyunlara etkisi */
+function renderImpact() {
+  let totalWords = 0, totalPuz = 0;
+  $("#impact").innerHTML = VERI.oyunlar.map(o => {
+    let badge, cls, words = [], ratio = 1;
+    if (o.tur === "liste") {
+      words = o.kelimeler.filter(w => F.yasak(w));
+      const tgt = (o.hedefler || []).filter(w => F.yasak(w));
+      totalWords += words.length;
+      badge = words.length ? `${words.length} kelime çıkarıldı` : "Etkilenmiyor";
+      if (tgt.length) badge += ` · ${tgt.length} gizli kelime atlanır`;
+      cls = words.length ? "warn" : "ok";
+    } else {
+      const bad = o.bulmacalar.map(p => p.filter(w => F.yasak(w))).filter(x => x.length);
+      const n = o.bulmacalar.length;
+      const off = o.id === "deyim" ? o.bulmacalar.filter(p => F.ifadeYasak(p.join(" "))).length : bad.length;
+      words = [...new Set(bad.flat())];
+      totalPuz += off;
+      ratio = (n - off) / n;
+      badge = off ? `${off}/${n} bulmaca gösterilmez` : "Etkilenmiyor";
+      cls = !off ? "ok" : ratio < .5 ? "bad" : "warn";
+    }
+    const extra = o.id === "kelime" && draft.ekle.kelime.length ? ` · ${draft.ekle.kelime.length} eklendi` : o.id === "baglanti" && draft.ekle.baglanti.length ? ` · ${draft.ekle.baglanti.length} eklendi` : o.id === "deyim" && draft.ekle.deyim.length ? ` · ${draft.ekle.deyim.length} eklendi` : "";
+    words.sort(cmp);
+    return `<div class="game"><div class="top"><span class="name">${esc(o.ad)}</span><span class="badge ${cls}">${badge}${extra}</span></div>
+      <p class="note">${esc(o.not)}</p>
+      ${o.tur === "bulmaca" ? `<div class="bar-mini"><i style="width:${ratio * 100}%"></i></div>` : ""}
+      ${words.length ? `<div class="words">${words.slice(0, 24).map(w => `<span>${esc(w)}</span>`).join("")}${words.length > 24 ? `<span class="more">+${words.length - 24}</span>` : ""}</div>` : ""}
+      ${cls === "bad" ? `<p class="note" style="color:var(--bad)">Bulmacaların yarısından fazlası devre dışı; aynı bulmacalar sık tekrar edebilir.</p>` : ""}</div>`;
+  }).join("") || `<span class="empty">panel-veri.js bulunamadı. <code>node araclar/panel-veri.mjs</code> komutunu çalıştırın.</span>`;
+  $("#impactSum").textContent = totalWords || totalPuz ? `${totalWords} kelime, ${totalPuz} bulmaca` : "";
+}
+
+/* ---------- 5 harfli kelimeler ---------- */
+const BASE5 = new Set((VERI.oyunlar.find(o => o.id === "kelime") || { kelimeler: [] }).kelimeler);
+function wordMsg(text, ok) { const m = $("#wordMsg"); m.className = "msg " + (ok ? "ok" : "bad"); m.textContent = text; }
+$("#wordAdd").onclick = () => {
+  const list = $("#wordInput").value.split(/[,;\s]+/).map(low).filter(Boolean);
+  if (!list.length) return;
+  const errs = [], added = [];
+  for (const w of list) {
+    if ([...w].length !== 5) errs.push(`“${w}” 5 harfli değil`);
+    else if (!LETTERS.test(w)) errs.push(`“${w}” yalnızca harf içermeli`);
+    else if (F.yasak(w)) errs.push(`“${w}” yasaklı`);
+    else if (draft.ekle.kelime.includes(w)) errs.push(`“${w}” zaten eklendi`);
+    else if (BASE5.has(w)) errs.push(`“${w}” zaten oyunda var`);
+    else { draft.ekle.kelime.push(w); added.push(w); }
+  }
+  if (added.length) { changed(); $("#wordInput").value = ""; }
+  wordMsg([added.length ? `${added.length} kelime eklendi.` : "", ...errs].filter(Boolean).join(" · "), !errs.length);
+};
+$("#wordInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#wordAdd").click(); });
+$("#wordList").onclick = e => {
+  const b = e.target.closest("button[data-w]");
+  if (!b) return;
+  draft.ekle.kelime = draft.ekle.kelime.filter(w => w !== b.dataset.w);
+  changed();
+};
+function renderWords() {
+  const l = draft.ekle.kelime.slice().sort(cmp);
+  $("#wordList").innerHTML = l.length ? l.map(w => `<span class="chip add">${esc(up(w))}<button data-w="${esc(w)}" aria-label="Çıkar">${X}</button></span>`).join("") : `<span class="empty">Henüz eklenen kelime yok.</span>`;
+}
+
+/* ---------- Bağlantı ---------- */
+const GCOL = ["#f1d27a", "#a8cf98", "#a9c6e8", "#c9b2e3"];
+const GNAME = ["Başlık (kolay)", "Başlık", "Başlık", "Başlık (zor)"];
+$("#groups").innerHTML = GCOL.map((c, g) => `<div class="grp"><i class="dot" style="background:${c}"></i><input class="field t" data-g="${g}" data-k="t" placeholder="${GNAME[g]}" autocomplete="off">${[0, 1, 2, 3].map(k => `<input class="field" data-g="${g}" data-k="${k}" placeholder="Kelime ${k + 1}" autocomplete="off" autocapitalize="off" spellcheck="false">`).join("")}</div>`).join("");
+const bagDraft = store.get("panel-bag-form", null);
+if (bagDraft) document.querySelectorAll("#groups .field").forEach(i => i.value = bagDraft[i.dataset.g]?.[i.dataset.k] ?? "");
+$("#groups").addEventListener("input", () => {
+  const v = [0, 1, 2, 3].map(() => ({}));
+  document.querySelectorAll("#groups .field").forEach(i => v[i.dataset.g][i.dataset.k] = i.value);
+  store.set("panel-bag-form", v);
+});
+function bagMsg(t, ok) { const m = $("#bagMsg"); m.className = "msg " + (ok ? "ok" : "bad"); m.textContent = t; }
+$("#bagAdd").onclick = () => {
+  const groups = [0, 1, 2, 3].map(g => {
+    const t = $(`#groups [data-g="${g}"][data-k="t"]`).value.trim();
+    const ws = [0, 1, 2, 3].map(k => low($(`#groups [data-g="${g}"][data-k="${k}"]`).value));
+    return [t, ws];
+  });
+  const all = groups.flatMap(g => g[1]);
+  if (groups.some(([t, ws]) => !t || ws.some(w => !w))) return bagMsg("Bütün başlıkları ve 16 kelimeyi doldurun.");
+  const bad = all.filter(w => !LETTERS.test(w.replace(/ /g, "")));
+  if (bad.length) return bagMsg(`Yalnızca harf kullanın: ${bad.join(", ")}`);
+  const dup = all.filter((w, i) => all.indexOf(w) !== i);
+  if (dup.length) return bagMsg(`Aynı kelime iki kez kullanılmış: ${[...new Set(dup)].join(", ")}`);
+  const ban = all.filter(w => F.yasak(w));
+  if (ban.length || groups.some(([t]) => F.ifadeYasak(t))) return bagMsg(`Yasaklı kelime var: ${ban.join(", ") || "grup başlığında"}`);
+  draft.ekle.baglanti.push(groups.map(([t, ws]) => [t, ws.map(up)]));
+  changed();
+  document.querySelectorAll("#groups .field").forEach(i => i.value = "");
+  store.del("panel-bag-form");
+  bagMsg("Bulmaca eklendi. Yayınladığınızda oyuna girer.", true);
+};
+$("#bagClear").onclick = () => { document.querySelectorAll("#groups .field").forEach(i => i.value = ""); store.del("panel-bag-form"); bagMsg(""); };
+$("#bagList").onclick = e => {
+  const b = e.target.closest("button[data-i]");
+  if (!b || !confirm("Bu bulmaca silinsin mi?")) return;
+  draft.ekle.baglanti.splice(+b.dataset.i, 1);
+  changed();
+};
+function renderBag() {
+  const l = draft.ekle.baglanti;
+  $("#bagCount").textContent = l.length ? `${l.length}` : "";
+  $("#bagList").innerHTML = l.length ? l.map((p, i) => `<div class="puz"><div class="gs">${p.map(([t, ws], g) => `<div style="background:${GCOL[g]}"><b>${esc(t)}</b>${esc(ws.join(", "))}</div>`).join("")}</div><button class="btn ghost sm" data-i="${i}">Sil</button></div>`).join("")
+    : `<span class="empty">Henüz eklenen bulmaca yok. Oyunda 15 hazır bulmaca var.</span>`;
+}
+
+/* ---------- Deyim ---------- */
+function dMsg(t, ok) { const m = $("#dMsg"); m.className = "msg " + (ok ? "ok" : "bad"); m.textContent = t; }
+$("#dAdd").onclick = () => {
+  const soz = low($("#dSoz").value).replace(/\s+/g, " "), anlam = $("#dAnlam").value.trim(), tur = $("#dTur").value;
+  if (!soz) return dMsg("Sözü yazın.");
+  if (!/^[a-zçğıöşü ]+$/.test(soz)) return dMsg("Sözde yalnızca harf ve boşluk olmalı (noktalama ya da şapkalı harf olmadan).");
+  if (soz.replace(/ /g, "").length < 6) return dMsg("Söz çok kısa.");
+  if (soz.replace(/ /g, "").length > 34) return dMsg("Söz çok uzun; oyun ekranına sığmayabilir (en fazla 34 harf).");
+  if (F.ifadeYasak(soz)) return dMsg("Sözde yasaklı bir kelime var.");
+  const base = (VERI.oyunlar.find(o => o.id === "deyim") || { bulmacalar: [] }).bulmacalar.map(p => p.join(" "));
+  if (base.includes(soz) || draft.ekle.deyim.some(d => d.soz === soz)) return dMsg("Bu söz zaten var.");
+  draft.ekle.deyim.push({ tur, soz, anlam });
+  changed();
+  $("#dSoz").value = ""; $("#dAnlam").value = "";
+  dMsg("Söz eklendi. Yayınladığınızda oyuna girer.", true);
+};
+$("#dList").onclick = e => {
+  const b = e.target.closest("button[data-i]");
+  if (!b) return;
+  draft.ekle.deyim.splice(+b.dataset.i, 1);
+  changed();
+};
+function renderDeyim() {
+  const l = draft.ekle.deyim;
+  $("#dCount").textContent = l.length ? `${l.length}` : "";
+  $("#dList").innerHTML = l.length ? l.map((d, i) => `<div class="ph"><div><small>${esc(d.tur)}</small><b>${esc(d.soz)}</b><p>${esc(d.anlam || "—")}</p></div><button class="btn ghost sm" data-i="${i}">Sil</button></div>`).join("")
+    : `<span class="empty">Henüz eklenen söz yok. Oyunda 52 hazır söz var.</span>`;
+}
+
+/* ---------- Yayınla ---------- */
+function fileText() {
+  const d = normal(draft);
+  const today = new Date().toISOString().slice(0, 10);
+  const ban = d.yasakli.slice().sort(cmp).map(w => JSON.stringify(w));
+  const lines = [];
+  for (let i = 0; i < ban.length; i += 10) lines.push("    " + ban.slice(i, i + 10).join(", "));
+  const ek = JSON.stringify(d.ekle, null, 2).replace(/\n/g, "\n  ");
+  return `/* Oyun ayarları — panel.html ile düzenlenir.
+   yasakli: hiçbir oyunda cevap, tahmin, ipucu ya da bulmaca olarak görünmeyecek kelimeler.
+            "kelime" ek almış hâlleri de kapsar, "kelime*" o harflerle başlayan her şeyi kapsar.
+   ekle:    oyunlara eklenen içerik (kelime: 5 harfli cevaplar, baglanti: yeni bulmacalar, deyim: yeni sözler). */
+window.OYUN_AYARLARI = {
+  "guncelleme": "${today}",
+  "yasakli": [
+${lines.join(",\n")}
+  ],
+  "ekle": ${ek}
+};
+`;
+}
+$("#dlBtn").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([fileText()], { type: "text/javascript;charset=utf-8" }));
+  a.download = "ayarlar.js";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast("ayarlar.js indirildi");
+};
+$("#copyBtn").onclick = async () => {
+  try { await navigator.clipboard.writeText(fileText()); toast("Panoya kopyalandı"); } catch { toast("Kopyalanamadı"); }
+};
+const gh = store.get("panel-github", {});
+["Repo", "Branch", "Path", "Token"].forEach(k => { if (gh[k]) $("#gh" + k).value = gh[k]; });
+$("#ghRemember").checked = !!gh.Token;
+function ghMsg(t, ok) { const m = $("#ghMsg"); m.className = "msg " + (ok ? "ok" : "bad"); m.textContent = t; }
+function b64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+$("#ghSave").onclick = async () => {
+  const repo = $("#ghRepo").value.trim(), branch = $("#ghBranch").value.trim() || "main", path = $("#ghPath").value.trim() || "ayarlar.js", token = $("#ghToken").value.trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return ghMsg("Depo “kullanıcı/depo” biçiminde olmalı.");
+  if (!token) return ghMsg("Erişim anahtarını girin.");
+  store.set("panel-github", { Repo: repo, Branch: branch, Path: path, ...($("#ghRemember").checked ? { Token: token } : {}) });
+  const btn = $("#ghSave");
+  btn.disabled = true; ghMsg("Kaydediliyor…", true);
+  const api = `https://api.github.com/repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`;
+  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
+  try {
+    let sha;
+    const r = await fetch(`${api}?ref=${encodeURIComponent(branch)}`, { headers });
+    if (r.ok) sha = (await r.json()).sha;
+    else if (r.status !== 404) throw new Error(r.status === 401 ? "Anahtar geçersiz ya da süresi dolmuş." : r.status === 403 ? "Anahtarın bu depoya yazma izni yok." : `GitHub hatası (${r.status}).`);
+    const put = await fetch(api, { method: "PUT", headers, body: JSON.stringify({ message: "Panel: oyun ayarları güncellendi", content: b64(fileText()), branch, ...(sha ? { sha } : {}) }) });
+    if (!put.ok) { const j = await put.json().catch(() => ({})); throw new Error(put.status === 403 || put.status === 404 ? "Anahtarın bu depoya yazma izni yok." : j.message || `GitHub hatası (${put.status}).`); }
+    base = normal(clone(draft));
+    store.set("panel-son-yayin", { data: base, at: Date.now() });
+    store.del("panel-taslak");
+    renderAll();
+    ghMsg("Kaydedildi. Site birkaç dakika içinde güncellenir.", true);
+    toast("GitHub'a kaydedildi");
+  } catch (err) {
+    ghMsg(err.message || "Kaydedilemedi. İnternet bağlantısını kontrol edin.");
+  } finally { btn.disabled = false; }
+};
+
+/* ---------- Genel ---------- */
+$("#revertBtn").onclick = () => {
+  if (!confirm("Yayınlanmamış bütün değişiklikler silinsin mi?")) return;
+  draft = normal(clone(base));
+  store.del("panel-taslak");
+  F = Filtre.olustur(draft);
+  renderAll();
+  toast("Değişiklikler geri alındı");
+};
+function renderAll() {
+  $("#nBan").textContent = draft.yasakli.length;
+  $("#nWord").textContent = draft.ekle.kelime.length;
+  $("#nBag").textContent = draft.ekle.baglanti.length;
+  $("#nDey").textContent = draft.ekle.deyim.length;
+  const dirty = isDirty();
+  $("#dirty").classList.toggle("on", dirty);
+  $("#revertBtn").hidden = !dirty;
+  renderBans(); renderImpact(); renderWords(); renderBag(); renderDeyim(); renderTest();
+  $("#preview").textContent = fileText();
+}
+function toast(msg, ms = 1800) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+renderAll();
+</script>
+</body>
+</html>

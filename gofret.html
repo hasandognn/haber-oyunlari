@@ -213,7 +213,10 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;justify-conten
   </div>
 </div>
 
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
 <script>
+const F = window.Filtre || { yasak: () => false, ifadeYasak: () => false, ileri: i => i, rastgele: n => Math.floor(Math.random() * n), ekle: () => [], low: s => s };
 /* w: [satır0, satır2, satır4, sütun0, sütun2, sütun4], s: karışık başlangıç, p: en az kaç takasla çözüldüğü */
 const PUZZLES = [{"w":["eylem","kadın","kurye","erkek","lider","monte"],"s":["r","l","n","e","e","r","e","o","t","y","d","ı","e","y","a","e","k","u","i","m","k"],"p":10},
 {"w":["sahip","yıkım","ırmak","saygı","hakem","pamuk"],"s":["ı","ı","e","h","s","a","r","a","y","p","k","a","m","a","m","u","a","ı","i","g","k"],"p":9},
@@ -273,6 +276,9 @@ const PUZZLES = [{"w":["eylem","kadın","kurye","erkek","lider","monte"],"s":["r
 {"w":["kahve","sayım","iplik","kısmi","hayal","etmek"],"s":["k","v","i","m","s","a","i","m","p","a","y","ı","e","h","a","a","t","e","l","ı","k"],"p":10},
 {"w":["örgüt","müzik","zalim","ölmez","güzel","takım"],"s":["a","ı","g","l","t","k","l","ü","ü","m","z","i","ü","e","m","ö","z","r","a","i","e"],"p":9}];
 
+/* ayarlar.js: yasaklı kelime içeren gofreti atla */
+const puzzleOk = i => !PUZZLES[i].w.some(w => F.yasak(w));
+
 const EXTRA = 5;
 const EPOCH = new Date(2026, 0, 1);
 const CELLS = [];
@@ -299,7 +305,7 @@ function dayIndex() {
   const n = new Date();
   return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
 }
-const dailyPid = d => ((d * 11 + 4) % PUZZLES.length + PUZZLES.length) % PUZZLES.length;
+const dailyPid = d => F.ileri(((d * 11 + 4) % PUZZLES.length + PUZZLES.length) % PUZZLES.length, PUZZLES.length, puzzleOk);
 function solution(w) {
   const g = {};
   [0, 2, 4].forEach((r, i) => [...w[i]].forEach((ch, c) => g[r + "," + c] = ch));
@@ -475,14 +481,14 @@ function start(m, fresh = false) {
     day = dayIndex();
     pid = dailyPid(day);
     s = store.get("gofret-daily", null);
-    if (!s || s.day !== day) s = null;
+    if (!s || s.day !== day || (s.pid !== undefined && s.pid !== pid)) s = null;
   } else {
     s = fresh ? null : store.get("gofret-practice", null);
-    if (s && !PUZZLES[s.pid]) s = null;
+    if (s && (!PUZZLES[s.pid] || !puzzleOk(s.pid))) s = null;
     if (s) pid = s.pid;
     else {
       let p;
-      do p = Math.floor(Math.random() * PUZZLES.length); while (p === pid || p === dailyPid(dayIndex()));
+      p = F.rastgele(PUZZLES.length, puzzleOk, pid, dailyPid(dayIndex()));
       pid = p;
     }
   }
@@ -501,7 +507,7 @@ function start(m, fresh = false) {
   document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
 }
 function save() {
-  if (mode === "daily") store.set("gofret-daily", { day, cur, used });
+  if (mode === "daily") store.set("gofret-daily", { day, pid, cur, used });
   else store.set("gofret-practice", { pid, cur, used });
 }
 function renderSub() {

@@ -226,7 +226,10 @@ main{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;alig
   </div>
 </div>
 
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
 <script>
+const F = window.Filtre || { yasak: () => false, ifadeYasak: () => false, ileri: i => i, rastgele: n => Math.floor(Math.random() * n), ekle: () => [], low: s => s };
 /* c: tür, p: söz, m: anlamı */
 const PHRASES = [{"c":"Atasözü","p":"damlaya damlaya göl olur","m":"Küçük birikimler zamanla büyük bir şey oluşturur."},
 {"c":"Atasözü","p":"sakla samanı gelir zamanı","m":"Değersiz görünen şeyler bir gün işe yarar."},
@@ -281,6 +284,13 @@ const PHRASES = [{"c":"Atasözü","p":"damlaya damlaya göl olur","m":"Küçük 
 {"c":"Kalıp söz","p":"başınız sağ olsun","m":"Yakınını kaybedene taziye."},
 {"c":"Kalıp söz","p":"gözün aydın","m":"Sevindirici bir haber alana kutlama."}];
 
+/* ayarlar.js: eklenen sözler ve yasaklı kelime içerenleri atlama */
+for (const e of F.ekle("deyim")) {
+  const p = F.low(e.p ?? e.soz ?? "").replace(/\s+/g, " ");
+  if (p && /^[a-zçğıöşü ]+$/.test(p)) PHRASES.push({ c: e.c ?? e.tur ?? "Söz", p, m: e.m ?? e.anlam ?? "" });
+}
+const puzzleOk = i => !F.ifadeYasak(PHRASES[i].p);
+
 const ROWS = 6, LINE = 14;
 const ALPHA = "abcçdefgğhıijklmnoöprsştuüvyz";
 const LAYOUT = ["ertyuıopğü", "asdfghjklşi", "+zcvbnmöç-"];
@@ -304,7 +314,7 @@ function dayIndex() {
   const n = new Date();
   return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
 }
-const dailyPid = d => ((d * 19 + 7) % PHRASES.length + PHRASES.length) % PHRASES.length;
+const dailyPid = d => F.ileri(((d * 19 + 7) % PHRASES.length + PHRASES.length) % PHRASES.length, PHRASES.length, puzzleOk);
 
 /* ---------- Puanlama ---------- */
 // yeşil: doğru yer · sarı: aynı kelimede · mavi: başka kelimede · gri: yok
@@ -477,14 +487,14 @@ function start(m, fresh = false) {
     day = dayIndex();
     pid = dailyPid(day);
     s = store.get("deyim-daily", null);
-    if (!s || s.day !== day) s = null;
+    if (!s || s.day !== day || (s.pid !== undefined && s.pid !== pid)) s = null;
   } else {
     s = fresh ? null : store.get("deyim-practice", null);
-    if (s && !PHRASES[s.pid]) s = null;
+    if (s && (!PHRASES[s.pid] || !puzzleOk(s.pid))) s = null;
     if (s) pid = s.pid;
     else {
       let p;
-      do p = Math.floor(Math.random() * PHRASES.length); while (p === pid || p === dailyPid(dayIndex()));
+      p = F.rastgele(PHRASES.length, puzzleOk, pid, dailyPid(dayIndex()));
       pid = p;
     }
   }
@@ -505,7 +515,7 @@ function start(m, fresh = false) {
   document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
 }
 function save() {
-  if (mode === "daily") store.set("deyim-daily", { day, guesses });
+  if (mode === "daily") store.set("deyim-daily", { day, pid, guesses });
   else store.set("deyim-practice", { pid, guesses });
 }
 function renderSub() {

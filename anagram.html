@@ -227,7 +227,10 @@ header{flex:none;border-bottom:1px solid var(--line)}
   </div>
 </div>
 
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
 <script>
+const F = window.Filtre || { yasak: () => false, ifadeYasak: () => false, ileri: i => i, rastgele: n => Math.floor(Math.random() * n), ekle: () => [], low: s => s };
 /* l: 7 harfli kök kelime, w: bulunması gereken sık kelimeler, x: bonus sayılan diğer sözlük kelimeleri */
 const PUZZLES = [{"l":"ziyaret","w":["ait","ari","art","arz","ray","ter","tez","yat","yaz","yer","zar","tarz","taze","zira","ziyaret"],"x":["ariyet","ate","ati","ayet","azit","erat","eza","iare","irat","ita","iye","rate","ret","rey","riayet","riya","riyazet","tar","tariz","tarziye","tay","taziye","terazi","terzi","tire","tiz","yar","yeti","yezit","zait","zat","zati","zayi","zer","zir","ziya"]},
 {"l":"zorlama","w":["ala","alo","ama","ara","arz","mal","mor","ram","rol","rom","zam","zar","zor","alma","azar","mala","mola","olma","oral","alarm","moral","olmaz","zorla","olamaz","zorlama"],"x":["alaz","amal","amor","araz","arma","aroma","aza","azma","azol","lam","lama","laza","lor","malaz","maral","maraz","oma","ora","razmol","roza","zom"]},
@@ -290,6 +293,10 @@ const PUZZLES = [{"l":"ziyaret","w":["ait","ari","art","arz","ray","ter","tez","
 {"l":"altıncı","w":["acı","alt","ant","anı","can","lan","tan","altı","alın","atlı","tanı","acılı","altın","alıcı","canlı","alıntı","altıncı"],"x":["antlı","anıt","anıtlı","atıcı","atıl","atılı","nal","tal","tın","tını","ılıca"]},
 {"l":"satılık","w":["alt","kal","kas","kat","kıl","sal","sık","tak","tık","ısı","aklı","akıl","altı","asıl","atlı","atık","kast","katı","klas","kısa","salt","salı","sıkı","ılık","asılı","kaslı","katlı","saklı","ıslak","ıslık","takılı","kasıtlı","satılık"],"x":["aks","akı","altık","alık","ask","asklı","askı","askılı","aslık","ast","ası","asık","asıltı","atkı","atkılı","atıl","atılı","kalıt","kasıt","kısıt","kıt","kıta","kıtal","lak","sak","sakıt","saltık","salık","satı","sıkıt","sıla","takı","tal","talk","tas","tıkalı","tıs","ıska","ıskat","ısıl","ıtlak"]}];
 
+/* ayarlar.js: yasaklıları kelime listelerinden çıkar; kökü yasaklı olanı atla */
+for (const p of PUZZLES) { p.w = p.w.filter(w => !F.yasak(w)); p.x = p.x.filter(w => !F.yasak(w)); }
+const puzzleOk = i => !F.yasak(PUZZLES[i].l) && PUZZLES[i].w.length >= 8;
+
 const PTS = { 3: 1, 4: 2, 5: 4, 6: 6, 7: 10 };
 const EPOCH = new Date(2026, 0, 1);
 const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
@@ -310,7 +317,7 @@ function dayIndex() {
   const n = new Date();
   return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
 }
-const dailyPid = d => ((d * 29 + 13) % PUZZLES.length + PUZZLES.length) % PUZZLES.length;
+const dailyPid = d => F.ileri(((d * 29 + 13) % PUZZLES.length + PUZZLES.length) % PUZZLES.length, PUZZLES.length, puzzleOk);
 function shuffled(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 const points = w => PTS[Math.min(7, w.length)] || 0;
 const scoreOf = () => [...found, ...bonus].reduce((s, w) => s + points(w), 0);
@@ -428,14 +435,14 @@ function start(m, fresh = false) {
     day = dayIndex();
     pid = dailyPid(day);
     s = store.get("anagram-daily", null);
-    if (!s || s.day !== day) s = null;
+    if (!s || s.day !== day || (s.pid !== undefined && s.pid !== pid)) s = null;
   } else {
     s = fresh ? null : store.get("anagram-practice", null);
-    if (s && !PUZZLES[s.pid]) s = null;
+    if (s && (!PUZZLES[s.pid] || !puzzleOk(s.pid))) s = null;
     if (s) pid = s.pid;
     else {
       let p;
-      do p = Math.floor(Math.random() * PUZZLES.length); while (p === pid || p === dailyPid(dayIndex()));
+      p = F.rastgele(PUZZLES.length, puzzleOk, pid, dailyPid(dayIndex()));
       pid = p;
     }
   }
@@ -458,7 +465,7 @@ function start(m, fresh = false) {
 }
 function save() {
   const st = { found, bonus, gaveUp };
-  if (mode === "daily") store.set("anagram-daily", { day, ...st });
+  if (mode === "daily") store.set("anagram-daily", { day, pid, ...st });
   else store.set("anagram-practice", { pid, ...st });
 }
 function renderSub() {

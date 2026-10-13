@@ -231,7 +231,10 @@ main{flex:1;display:flex;flex-direction:column;align-items:center;justify-conten
   </div>
 </div>
 
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
 <script>
+const F = window.Filtre || { yasak: () => false, ifadeYasak: () => false, ileri: i => i, rastgele: n => Math.floor(Math.random() * n), ekle: () => [], low: s => s };
 /* Her bulmaca: zorluk sırasıyla 4 grup [başlık, kelimeler] */
 const PUZZLES = [
   [["Kahvaltılık", ["PEYNİR", "ZEYTİN", "REÇEL", "YUMURTA"]],
@@ -297,6 +300,13 @@ const PUZZLES = [
 ];
 
 const MAX_MISTAKES = 4;
+/* ayarlar.js: eklenen bulmacalar ve yasaklı kelime içerenleri atlama */
+for (const p of F.ekle("baglanti")) {
+  if (Array.isArray(p) && p.length === 4 && p.every(g => Array.isArray(g) && g.length === 2 && Array.isArray(g[1]) && g[1].length === 4))
+    PUZZLES.push(p.map(([t, ws]) => [String(t), ws.map(w => F.low(w).toLocaleUpperCase("tr-TR"))]));
+}
+const puzzleOk = i => !PUZZLES[i].some(([t, ws]) => F.ifadeYasak(t) || ws.some(w => F.yasak(w)));
+const dailyPid = d => F.ileri(((d * 7 + 3) % PUZZLES.length + PUZZLES.length) % PUZZLES.length, PUZZLES.length, puzzleOk);
 const EPOCH = new Date(2026, 0, 1);
 const SQ = ["🟨", "🟩", "🟦", "🟪"];
 const PRAISE = ["Kusursuz!", "Harika!", "Çok iyi!", "Kıl payı!"];
@@ -517,16 +527,16 @@ function start(m, fresh = false) {
   let s;
   if (m === "daily") {
     day = dayIndex();
-    pid = ((day * 7 + 3) % PUZZLES.length + PUZZLES.length) % PUZZLES.length;
+    pid = dailyPid(day);
     s = store.get("baglanti-daily", null);
-    if (!s || s.day !== day) s = null;
+    if (!s || s.day !== day || (s.pid !== undefined && s.pid !== pid)) s = null;
   } else {
     s = fresh ? null : store.get("baglanti-practice", null);
-    if (s && !PUZZLES[s.pid]) s = null;
+    if (s && (!PUZZLES[s.pid] || !puzzleOk(s.pid))) s = null;
     if (s) pid = s.pid;
     else {
       let p;
-      do p = Math.floor(Math.random() * PUZZLES.length); while (PUZZLES.length > 1 && p === pid);
+      p = F.rastgele(PUZZLES.length, puzzleOk, pid, dailyPid(dayIndex()));
       pid = p;
     }
   }
@@ -549,7 +559,7 @@ function start(m, fresh = false) {
 
 function save() {
   const st = { order, solved, mistakes, guesses };
-  if (mode === "daily") store.set("baglanti-daily", { day, ...st });
+  if (mode === "daily") store.set("baglanti-daily", { day, pid, ...st });
   else store.set("baglanti-practice", { pid, ...st });
 }
 

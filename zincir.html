@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Zincir — Günlük Kelime Zinciri</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#efefec; --soft:#f7f7f5;
+  --ok:#6aa780; --hint:#d8b257; --bad:#d9654b;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --t:min(42px, calc((100vw - 48px) / 10 - 4px));
+}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+.app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+
+header{flex:none;border-bottom:1px solid var(--line)}
+.bar{max-width:600px;margin:0 auto;height:60px;padding:0 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bar .right{display:flex;justify-content:flex-end;gap:2px}
+.title{font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;line-height:1}
+.ib{width:40px;height:40px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:background-color .25s var(--ease),transform .15s var(--ease)}
+.ib:hover{background:var(--soft)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+main{flex:1;width:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px 16px calc(28px + env(safe-area-inset-bottom))}
+.sub{display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--muted);min-height:26px;flex-wrap:wrap}
+.sub .dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background-color .25s var(--ease),border-color .25s}
+.chip:hover{background:var(--soft);border-color:var(--line-strong)}
+.ask{text-align:center;font-size:14.5px;color:#3a3a3d;margin:0;line-height:1.5}
+
+.chain{display:flex;flex-direction:column;align-items:center}
+.word{display:flex;gap:4px;padding:6px;border-radius:14px;cursor:default;transition:background-color .25s var(--ease),box-shadow .25s var(--ease)}
+.word.pick{cursor:pointer}
+.word.pick:hover{background:var(--soft)}
+.word.active{background:#fff;box-shadow:0 0 0 2px var(--ink)}
+.word.shake{animation:shake .45s var(--ease)}
+.word i{width:var(--t);height:calc(var(--t) * 1.12);border-radius:8px;display:grid;place-items:center;font-style:normal;font-weight:700;font-size:calc(var(--t) * .5);border:1.5px solid var(--line-strong);background:#fff;transition:background-color .35s var(--ease),border-color .35s,color .35s}
+.word i.known{background:var(--ink);border-color:var(--ink);color:#fff}
+.word i.hint{background:var(--hint);border-color:var(--hint);color:#fff}
+.word.solved i{background:var(--ok);border-color:var(--ok);color:#fff}
+.word.anim i{animation:flip .5s var(--ease) both;animation-delay:calc(var(--d) * 50ms)}
+.word.gaveup i{background:var(--bad);border-color:var(--bad);color:#fff}
+.word.end i{background:var(--ink);border-color:var(--ink);color:#fff}
+.link{height:34px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);font-weight:600}
+.link::before{content:"";width:2px;height:100%;background:var(--line-strong);border-radius:2px}
+.link span{opacity:0;transform:translateX(-4px);transition:opacity .4s var(--ease),transform .4s var(--ease);white-space:nowrap}
+.link.on span{opacity:1;transform:none}
+.link.on::before{background:var(--ok)}
+
+form{position:relative;width:100%}
+.field{width:100%;height:54px;border:1.5px solid var(--line-strong);border-radius:14px;padding:0 54px 0 16px;font-size:17px;font-weight:500;background:#fff;outline:none;transition:border-color .2s var(--ease),box-shadow .25s var(--ease)}
+.field:focus{border-color:var(--ink);box-shadow:0 0 0 4px rgba(29,29,31,.06)}
+.field::placeholder{color:#b4b4b0}
+.go{position:absolute;right:7px;top:7px;width:40px;height:40px;border:0;border-radius:10px;background:var(--ink);color:#fff;display:grid;place-items:center;cursor:pointer;transition:transform .15s var(--ease)}
+.go:active{transform:scale(.92)}
+.go svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+form.hide,.row.hide{display:none}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;width:100%;font-size:13px;color:var(--muted)}
+.row b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+@keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+
+.btn{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:13px 22px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.96)}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s var(--ease),transform .35s var(--ease);white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-6px) scale(.97)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+
+.scrim{position:fixed;inset:0;background:rgba(250,250,248,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:20px;z-index:50;pointer-events:none}
+.card{width:100%;max-width:410px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(20,20,20,.12),0 2px 8px rgba(20,20,20,.04);padding:26px 26px 24px;position:relative;opacity:0;transform:translateY(14px) scale(.975);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.modal.open{pointer-events:auto}
+.modal.open .card{opacity:1;transform:none}
+.card h2{font-weight:700;font-size:21px;margin:0 0 14px;letter-spacing:-.015em}
+.card h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px}
+.card p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#3a3a3d}
+.card ul{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.6;color:#3a3a3d}
+.close{position:absolute;top:14px;right:14px}
+.hr{height:1px;background:var(--line);margin:18px 0}
+.note{font-size:13px!important;color:var(--muted)!important}
+.ex{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700;font-size:14px;margin:8px 0 12px;letter-spacing:.04em}
+.ex span{background:var(--soft);border-radius:8px;padding:6px 10px}
+.ex em{font-style:normal;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats b{display:block;font-size:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.result{text-align:center}
+.result .big{font-size:40px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.result p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.links{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.links div{background:var(--soft);border-radius:9px;padding:8px 12px;font-size:14px;font-weight:600}
+.foot{display:flex;align-items:center;gap:16px;margin-top:22px}
+.foot>div{flex:1}
+.foot small{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.clock{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
+.dh .brand{font-weight:700;font-size:20px;letter-spacing:-.015em}
+.dh small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;letter-spacing:0}
+.item{width:100%;border:0;background:transparent;display:flex;align-items:center;gap:14px;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;text-decoration:none;color:inherit;opacity:0;transform:translateX(-10px);transition:opacity .45s var(--ease),transform .55s var(--ease),background-color .25s var(--ease)}
+.drawer.open .item{opacity:1;transform:none;transition-delay:calc(var(--i) * 45ms + 120ms),calc(var(--i) * 45ms + 120ms),0s}
+.item:hover{background:var(--soft)}
+.item.on{background:var(--soft);font-weight:600}
+.item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.item.on svg{color:var(--ink)}
+.sep{height:1px;background:var(--line);margin:10px 8px}
+.dfoot{margin-top:auto;padding:0 12px;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div><button class="ib" id="menuBtn" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button></div>
+      <h1 class="title">Zincir</h1>
+      <div class="right">
+        <button class="ib" data-open="help" aria-label="Nasıl oynanır"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg></button>
+        <button class="ib" data-open="stats" aria-label="İstatistikler"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="sub" id="sub"></div>
+    <p class="ask">Her kelime bir sonrakiyle birlikte bilinen bir ifade oluşturur.</p>
+    <div class="chain" id="chain"></div>
+    <form id="form" autocomplete="off">
+      <input class="field" id="field" type="text" placeholder="Seçili kelimeyi yazın" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" maxlength="20">
+      <button class="go" aria-label="Tahmin et"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+    <div class="row" id="row"><span>Açılan harf: <b id="nHints">0</b></span><button class="chip" id="hintBtn">Harf aç</button></div>
+  </main>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
+
+<nav class="drawer" id="drawer" aria-label="Menü">
+  <div class="dh">
+    <div class="brand">Zincir<small>Haber Oyunları</small></div>
+    <button class="ib" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button class="item" style="--i:0" data-mode="daily"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Günün Zinciri</button>
+  <button class="item" style="--i:1" data-mode="practice"><svg viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3M18 4l2 3-2 3M18 14l2 3-2 3"/></svg>Pratik Modu</button>
+  <div class="sep"></div>
+  <button class="item" style="--i:2" data-open="help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>Nasıl Oynanır</button>
+  <button class="item" style="--i:3" data-open="stats"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>İstatistikler</button>
+  <div class="sep"></div>
+  <a class="item" style="--i:4" href="index.html"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Tüm Oyunlar</a>
+  <div class="dfoot">Her gün yeni bir zincir.</div>
+</nav>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="helpT">Nasıl Oynanır</h2>
+    <p>İlk ve son kelime verilir. Aradaki <b>üç kelimeyi</b> bulun; zincirdeki her kelime bir sonrakiyle birlikte bilinen bir ifade oluşturur.</p>
+    <div class="ex"><span>GÜN</span><em>→</em><span>IŞIK</span><em>→</em><span>HIZ</span></div>
+    <p class="note" style="margin-top:-4px">gün ışığı · ışık hızı</p>
+    <ul>
+      <li>Çerçeveli kelimeye tahmin yazın; başka bir kelimeye dokunarak onu seçebilirsiniz.</li>
+      <li>Her yanlış tahmin o kelimenin bir harfini daha açar.</li>
+      <li>Ne kadar az harf açarsanız o kadar iyi.</li>
+    </ul>
+    <div class="hr"></div>
+    <p class="note">Kelimeleri yalın hâliyle yazın (“ışığı” yerine “ışık”); ek almış hâlleri de çoğu zaman kabul edilir.</p>
+  </div>
+</div>
+
+<div class="modal" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="statsT">İstatistikler</h2>
+    <div id="resultBox"></div>
+    <div class="stats" id="statNums"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
+<script>
+const F = window.Filtre || { yasak: () => false, ifadeYasak: () => false, ileri: i => i, rastgele: n => Math.floor(Math.random() * n) };
+/* w: zincirin beş kelimesi, l: aralarındaki dört ifade */
+const PUZZLES = [{"w":["gün","ışık","hız","tren","istasyon"],"l":["gün ışığı","ışık hızı","hız treni","tren istasyonu"]},
+{"w":["el","kitap","kapak","kız","kule"],"l":["el kitabı","kitap kapağı","kapak kızı","kız kulesi"]},
+{"w":["köprü","ayak","bilek","güreş","minder"],"l":["köprü ayağı","ayak bileği","bilek güreşi","güreş minderi"]},
+{"w":["şehir","merkez","banka","kart","oyun"],"l":["şehir merkezi","merkez bankası","banka kartı","kart oyunu"]},
+{"w":["çay","bahçe","kapı","kol","saat"],"l":["çay bahçesi","bahçe kapısı","kapı kolu","kol saati"]},
+{"w":["göz","yaş","gün","doğum","izin"],"l":["gözyaşı","yaş günü","gün doğumu","doğum izni"]},
+{"w":["bal","kabak","çekirdek","aile","doktor"],"l":["bal kabağı","kabak çekirdeği","çekirdek aile","aile doktoru"]},
+{"w":["orman","yangın","tüp","bebek","araba"],"l":["orman yangını","yangın tüpü","tüp bebek","bebek arabası"]},
+{"w":["hava","alan","ad","gün","ışık"],"l":["havaalanı","alan adı","ad günü","gün ışığı"]},
+{"w":["kahve","fal","taş","ocak","baş"],"l":["kahve falı","fal taşı","taş ocağı","ocakbaşı"]},
+{"w":["kış","lastik","ayakkabı","kutu","oyun"],"l":["kış lastiği","lastik ayakkabı","ayakkabı kutusu","kutu oyunu"]},
+{"w":["ana","dil","bilgi","yarışma","program"],"l":["anadili","dil bilgisi","bilgi yarışması","yarışma programı"]},
+{"w":["deniz","kız","kule","saat","ayar"],"l":["deniz kızı","kız kulesi","kule saati","saat ayarı"]},
+{"w":["su","kabak","çekirdek","kahve","fincan"],"l":["su kabağı","kabak çekirdeği","çekirdek kahve","kahve fincanı"]},
+{"w":["yaz","tatil","köy","kahve","fal"],"l":["yaz tatili","tatil köyü","köy kahvesi","kahve falı"]},
+{"w":["telefon","rehber","öğretmen","oda","kapı"],"l":["telefon rehberi","rehber öğretmen","öğretmen odası","oda kapısı"]},
+{"w":["futbol","saha","kenar","çizgi","film"],"l":["futbol sahası","saha kenarı","kenar çizgisi","çizgi film"]},
+{"w":["kitap","kapak","resim","sergi","salon"],"l":["kitap kapağı","kapak resmi","resim sergisi","sergi salonu"]},
+{"w":["çocuk","oyun","alan","ad","gün"],"l":["çocuk oyunu","oyun alanı","alan adı","ad günü"]},
+{"w":["diş","macun","tüp","bebek","mama"],"l":["diş macunu","macun tüpü","tüp bebek","bebek maması"]},
+{"w":["yemek","tarif","defter","kapak","kız"],"l":["yemek tarifi","tarif defteri","defter kapağı","kapak kızı"]},
+{"w":["tarih","ders","kitap","fuar","alan"],"l":["tarih dersi","ders kitabı","kitap fuarı","fuar alanı"]},
+{"w":["yol","kenar","çizgi","film","yıldız"],"l":["yol kenarı","kenar çizgisi","çizgi film","film yıldızı"]},
+{"w":["elma","ağaç","ev","iş","yer"],"l":["elma ağacı","ağaç ev","ev işi","iş yeri"]},
+{"w":["kalem","kutu","oyun","alan","ad"],"l":["kalem kutusu","kutu oyunu","oyun alanı","alan adı"]},
+{"w":["ay","ışık","hız","tren","yol"],"l":["ay ışığı","ışık hızı","hız treni","tren yolu"]},
+{"w":["sabah","kahvaltı","sofra","bez","bebek"],"l":["sabah kahvaltısı","kahvaltı sofrası","sofra bezi","bez bebek"]},
+{"w":["kağıt","uçak","bilet","gişe","rekor"],"l":["kağıt uçak","uçak bileti","bilet gişesi","gişe rekoru"]},
+{"w":["okul","servis","araç","park","yer"],"l":["okul servisi","servis aracı","araç parkı","park yeri"]},
+{"w":["buz","dolap","kapak","kız","kule"],"l":["buzdolabı","dolap kapağı","kapak kızı","kız kulesi"]}];
+/* ayarlar.js: yasaklı kelime içeren zinciri atla */
+const puzzleOk = i => !PUZZLES[i].w.some(w => F.yasak(w)) && !PUZZLES[i].l.some(l => F.ifadeYasak(l));
+
+const EPOCH = new Date(2026, 0, 1);
+const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+
+const $ = s => document.querySelector(s);
+const low = s => String(s).toLocaleLowerCase("tr-TR");
+const up = s => String(s).toLocaleUpperCase("tr-TR");
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+let stats = store.get("zincir-stats", { played: 0, perfect: 0, totalHints: 0, streak: 0, best: 0, lastDay: null });
+let mode, day, pid, P, shown, solved, active, over;
+// shown[i]: o kelimede açık harf sayısı; solved[i]: 0 çözülmedi, 1 bulundu, 2 harflerle açıldı
+
+function dayIndex() {
+  const n = new Date();
+  return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
+}
+const dailyPid = d => F.ileri(((d * 13 + 2) % PUZZLES.length + PUZZLES.length) % PUZZLES.length, PUZZLES.length, puzzleOk);
+const hidden = [1, 2, 3];
+const hintsUsed = () => hidden.reduce((s, i) => s + shown[i] - 1, 0);
+
+/* ---------- Render ---------- */
+function render(fresh = -1, done = -1) {
+  const chain = $("#chain");
+  let html = "";
+  P.w.forEach((w, i) => {
+    const letters = [...w];
+    const isEnd = i === 0 || i === 4;
+    const st = isEnd ? "end" : solved[i] === 1 ? "solved" : solved[i] === 2 ? "gaveup" : "";
+    const cls = ["word", st, i === done ? "anim" : "", !isEnd && !solved[i] && !over ? "pick" : "", i === active && !over ? "active" : ""].filter(Boolean).join(" ");
+    html += `<div class="${cls}" data-i="${i}">${letters.map((ch, k) => {
+      const show = isEnd || solved[i] || k < shown[i];
+      const c = !isEnd && !solved[i] && show ? (k === 0 ? "known" : "hint") : "";
+      return `<i class="${c}" style="--d:${k}">${show ? up(ch) : ""}</i>`;
+    }).join("")}</div>`;
+    if (i < 4) {
+      const on = (i === 0 || solved[i]) && (i + 1 === 4 || solved[i + 1]);
+      html += `<div class="link${on ? " on" : ""}"><span>${P.l[i]}</span></div>`;
+    }
+  });
+  chain.innerHTML = html;
+  if (fresh >= 0) chain.querySelector(`.word[data-i="${fresh}"]`)?.classList.add("shake");
+  $("#nHints").textContent = hintsUsed();
+  $("#form").classList.toggle("hide", over);
+  $("#row").classList.toggle("hide", over);
+}
+
+/* ---------- Oyun ---------- */
+function matches(guess, w) {
+  const g = low(guess).replace(/[^a-zçğıöşüâîû]/g, "");
+  if (g === w) return true;
+  // ifadedeki hâli de kabul et: kapısı, ışığı, kitabı, kapılar (ünsüz yumuşaması dahil)
+  const EK = ["ı", "i", "u", "ü", "sı", "si", "su", "sü", "lar", "ler", "ları", "leri"];
+  const soft = { p: "b", ç: "c", t: "d", k: "ğ" };
+  const stems = [w, w.slice(0, -1) + (soft[w.at(-1)] || w.at(-1))];
+  return stems.some(s => g.startsWith(s) && EK.includes(g.slice(s.length)));
+}
+function guess(raw) {
+  if (over || active < 0) return;
+  const g = raw.trim();
+  if (!g) return;
+  const w = P.w[active];
+  if (matches(g, w)) {
+    solved[active] = 1;
+    toast(["Harika!", "Doğru!", "Bildiniz!"][Math.floor(Math.random() * 3)]);
+  } else {
+    reveal(active);
+    toast("Olmadı, bir harf açıldı");
+  }
+  afterMove(active);
+}
+function reveal(i) {
+  shown[i]++;
+  if (shown[i] >= [...P.w[i]].length) solved[i] = 2;
+}
+function afterMove(i) {
+  const was = active;
+  if (solved[active]) active = hidden.find(k => !solved[k]) ?? -1;
+  over = hidden.every(k => solved[k]);
+  save();
+  render(solved[was] ? -1 : i, solved[was] ? was : -1);
+  if (over) finish();
+}
+$("#hintBtn").onclick = () => { if (over || active < 0) return; reveal(active); afterMove(active); };
+$("#chain").addEventListener("click", e => {
+  const el = e.target.closest(".word.pick");
+  if (!el || over) return;
+  active = +el.dataset.i;
+  save(); render();
+  if (matchMedia("(pointer:fine)").matches) $("#field").focus();
+});
+function finish() {
+  const h = hintsUsed();
+  if (mode === "daily") {
+    stats.played++;
+    stats.totalHints += h;
+    if (!h) stats.perfect++;
+    stats.streak = stats.lastDay === day - 1 ? stats.streak + 1 : 1;
+    stats.best = Math.max(stats.best, stats.streak);
+    stats.lastDay = day;
+    store.set("zincir-stats", stats);
+  }
+  toast(h === 0 ? "Kusursuz zincir!" : hidden.some(i => solved[i] === 2) ? "Zincir tamamlandı" : "Tebrikler!", 1900);
+  setTimeout(() => { if (!isOpen()) open("stats"); }, 1500);
+}
+function start(m, fresh = false) {
+  mode = m;
+  let s;
+  if (m === "daily") {
+    day = dayIndex();
+    pid = dailyPid(day);
+    s = store.get("zincir-daily", null);
+    if (!s || s.day !== day || s.pid !== pid) s = null;
+  } else {
+    s = fresh ? null : store.get("zincir-practice", null);
+    if (s && (!PUZZLES[s.pid] || !puzzleOk(s.pid))) s = null;
+    pid = s ? s.pid : F.rastgele(PUZZLES.length, puzzleOk, pid, dailyPid(dayIndex()));
+  }
+  P = PUZZLES[pid];
+  shown = s ? s.shown : [0, 1, 1, 1, 0];
+  solved = s ? s.solved : [1, 0, 0, 0, 1];
+  active = s ? s.active : 1;
+  over = hidden.every(k => solved[k]);
+  save();
+  render();
+  renderSub();
+  document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+}
+function save() {
+  const st = { pid, shown, solved, active };
+  if (mode === "daily") store.set("zincir-daily", { day, ...st });
+  else store.set("zincir-practice", st);
+}
+function renderSub() {
+  const sub = $("#sub");
+  if (mode === "daily") {
+    const date = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+    sub.innerHTML = `<span>${date}</span><span class="dot"></span><span>#${day + 1}</span>`;
+  } else {
+    sub.innerHTML = `<span>Pratik modu</span><button class="chip" id="newPz">Yeni zincir</button>`;
+    $("#newPz").onclick = () => start("practice", true);
+  }
+}
+
+/* ---------- İstatistik ---------- */
+function renderStats() {
+  const today = dayIndex();
+  const streak = stats.lastDay !== null && stats.lastDay >= today - 1 ? stats.streak : 0;
+  const avg = stats.played ? (stats.totalHints / stats.played).toFixed(1).replace(".", ",") : "–";
+  const h = hintsUsed();
+  $("#resultBox").innerHTML = over
+    ? `<div class="result"><div class="big">${h === 0 ? "Kusursuz" : h + " harf"}</div><p>${h === 0 ? "Hiç harf açmadan tamamladınız" : "açarak zinciri tamamladınız"}</p></div>
+       <div class="links">${P.l.map(l => `<div>${l}</div>`).join("")}</div><h3>Genel</h3>`
+    : "";
+  $("#statNums").innerHTML = [[stats.played, "Oynanan"], [stats.perfect, "Kusursuz"], [avg, "Ort. Harf"], [streak, "Seri"]]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+  const foot = $("#foot");
+  if (!over) { foot.innerHTML = ""; return; }
+  if (mode === "daily") {
+    foot.innerHTML = `<div><small>Sonraki zincir</small><div class="clock" id="clock"></div></div><button class="btn" id="shareBtn">${ICON_SHARE}Paylaş</button>`;
+    $("#shareBtn").onclick = share;
+    tick();
+  } else {
+    foot.innerHTML = `<div></div><button class="btn" id="againBtn">Yeni zincir</button>`;
+    $("#againBtn").onclick = () => { closeAll(); setTimeout(() => start("practice", true), 250); };
+  }
+}
+function tick() {
+  const el = $("#clock");
+  if (el) {
+    const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+    const s = Math.max(0, Math.floor((next - n) / 1000));
+    el.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":");
+  }
+  if (mode === "daily" && dayIndex() !== day) start("daily");
+}
+setInterval(tick, 1000);
+async function share() {
+  const marks = hidden.map(i => solved[i] === 2 ? "🟥" : shown[i] > 1 ? "🟨" : "🟩").join("");
+  const text = `Zincir #${day + 1} ⛓️ ${hintsUsed() ? hintsUsed() + " harf" : "kusursuz"}\n⬛${marks}⬛`;
+  if (navigator.share && matchMedia("(pointer:coarse)").matches) { try { await navigator.share({ text }); return; } catch {} }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); } catch { toast("Kopyalanamadı"); }
+}
+
+/* ---------- Toasts & overlays ---------- */
+function toast(msg, ms = 1400) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+const scrim = $("#scrim"), drawer = $("#drawer");
+function isOpen() { return scrim.classList.contains("open"); }
+function closeAll() {
+  scrim.classList.remove("open"); drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  document.activeElement && document.activeElement.blur();
+}
+function open(id) {
+  const wasDrawer = drawer.classList.contains("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  if (id === "stats") renderStats();
+  scrim.classList.add("open");
+  setTimeout(() => $("#" + id).classList.add("open"), wasDrawer ? 180 : 0);
+}
+$("#menuBtn").onclick = () => { scrim.classList.add("open"); drawer.classList.add("open"); };
+scrim.onclick = closeAll;
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeAll(); }));
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"), c = e.target.closest("[data-close]"), md = e.target.closest("[data-mode]");
+  if (o) open(o.dataset.open);
+  else if (c) closeAll();
+  else if (md) { closeAll(); if (md.dataset.mode !== mode) setTimeout(() => start(md.dataset.mode), 200); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeAll(); });
+$("#form").onsubmit = e => {
+  e.preventDefault();
+  const f = $("#field");
+  guess(f.value);
+  f.value = "";
+  if (!over && matchMedia("(pointer:fine)").matches) f.focus();
+};
+
+/* ---------- Boot ---------- */
+start("daily");
+if (!store.get("zincir-seen", false)) { store.set("zincir-seen", true); setTimeout(() => open("help"), 400); }
+else if (!over && matchMedia("(pointer:fine)").matches) $("#field").focus();
+</script>
+</body>
+</html>

@@ -266,7 +266,10 @@ main{flex:1;width:100%;max-width:520px;margin:0 auto;display:flex;flex-direction
   </div>
 </div>
 
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
 <script>
+const F = window.Filtre || { yasak: () => false, ifadeYasak: () => false, ileri: i => i, rastgele: n => Math.floor(Math.random() * n), ekle: () => [], low: s => s };
 /* c: ortadaki harf, l: diğer 6 harf, w: cevaplar (TDK ∩ sık kullanılan kelimeler/kökler), x: kabul edilen ama zorunlu olmayan nadir TDK kelimeleri */
 const PUZZLES = [{"c":"m","l":"eilrşy","w":["elem","eleme","elim","elleme","emir","emme","erim","erime","erişim","erişme","erme","ermiş","eylem","eyleme","eşleşme","ilerleme","iyileşme","işeme","işlem","işleme","lime","meme","memeli","memeliler","mermer","mermi","meyil","meyilli","meşe","milim","milli","remi","yeme","yemiş","yemyeşil","yerleşim","yerleşme","yeşim","yirmi","şişme"],"x":["elemli","elleşme","emel","emilme","emiş","emişme","emleme","emmi","emreyleme","erişilme","eyerleme","eylemli","eşeleme","eşilme","eşlem","eşleme","eşlemeli","eşme","ilim","ilişilme","ilişme","ilme","ilmiye","imleme","irileşme","işlemeli","işleyim","meleme","meleş","meleşme","meri","mermerleşme","mermerli","meşime","milel","mimleme","mimli","mirim","remel","remil","reşme","rimel","rimelleme","rimelli","yeleme","yelleme","yelme","yemişli","yemleme","yerelleşme","yerilme","yerleşilme","yerlileşme","yerme","yermeli","yeşerme","yirmişer","yiyim","yiyimli","şilem","şimşir","şişeleme","şişirilme","şişirme","şişleme"]},
 {"c":"l","l":"amştvy","w":["alay","alma","amal","atlama","atlatma","aval","avlama","ayla","lala","lama","lava","mala","malt","malta","tamamlama","tavla","tavlama","yalama","yavaşlatma","yayla"],"x":["alalama","alatav","allama","allaşma","almaş","altlama","avlatma","ayal","aylama","lata","lavaş","lavta","layt","malalama","malama","malya","matla","matlaşma","maval","mayalama","maşala","maşalama","talaş","talaşlama","tamamlatma","tamlama","taylama","taşlama","taşlatma","taşlaşma","yalatma","yamalama","yamalma","yavaşlama","yaylama","şaşalama","şaşalatma"]},
@@ -329,6 +332,10 @@ const PUZZLES = [{"c":"m","l":"eilrşy","w":["elem","eleme","elim","elleme","emi
 {"c":"m","l":"agıluy","w":["algılama","alma","alım","alımlı","amal","amma","gama","lama","mala","malum","mama","maya","muamma","mumya","umma","umulma","umum","uygulama","uygulamalı","uyma","uyum","uyuma","uyumlu","yalama","yama","yamyam","yayma","yayılma","yuma","yılma","ılım","ılımlı"],"x":["agulama","alalama","allama","amalgam","aylama","ayma","ayılma","gagalama","galyum","gamalı","gamlı","magma","malaga","malalama","malama","malgama","malul","malya","mamul","mayalama","mayalı","mualla","muammalı","mumlama","mumlu","mumyalama","muylu","ulam","ulama","ululama","ulum","uluma","uygulayım","uyulma","yalım","yamalama","yamalma","yamalı","yamama","yamulma","yaylama","yaylım","yayım","yayımlama","yumma","yumulma","yumulu","yıllama","ılgama","ılgım","ılıma"]},
 {"c":"ı","l":"aknpşy","w":["akın","akış","aynı","ayık","ayın","ayıp","aşkın","aşık","kanı","kapanık","kapanış","kapı","kayık","kayın","kayıp","kayış","kaşık","kına","kıya","kıyak","kıyı","kışın","yakı","yakın","yakış","yakışık","yankı","yanık","yapı","yapış","yapışkan","yapışık","yayın","yıkı","ışık","ışın","şaşkın","şaşı"],"x":["akışkan","akşın","anık","apış","apışak","apışık","kakış","kanayış","kanık","kanış","kapış","kaynayış","kaynaşık","kaşınış","kınakına","kınayış","kınnap","kıpkıp","kıpık","kıyık","kıyın","kıyış","nakış","yakınış","yanaşık","yanış","yapyakın","yapık","yayık","yayınık","yayış","yaşayış","yıkanış","yıkayış","yıkkın","yıkık","yıkış","ışkı","ışkın","şakayık","şakıyış","şıkşık","şıpka","şıpşıp"]}];
 
+/* ayarlar.js: yasaklı kelimeleri cevaplardan çıkar; pangramı kalmayan peteği atla */
+for (const p of PUZZLES) { p.w = p.w.filter(w => !F.yasak(w)); if (p.x) p.x = p.x.filter(w => !F.yasak(w)); }
+const puzzleOk = i => PUZZLES[i].w.some(w => new Set(w).size === 7);
+
 const EPOCH = new Date(2026, 0, 1);
 const ALPHA = "abcçdefgğhıijklmnoöprsştuüvyz";
 const RANKS = [["Başlangıç", 0], ["İyi gidiyor", 2], ["Fena değil", 5], ["İyi", 8], ["Sağlam", 15], ["Çok iyi", 25], ["Harika", 40], ["Muhteşem", 50], ["Dahi", 70], ["Ana Arı", 100]];
@@ -350,7 +357,7 @@ function dayIndex() {
   const n = new Date();
   return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
 }
-const dailyPid = d => ((d * 13 + 5) % PUZZLES.length + PUZZLES.length) % PUZZLES.length;
+const dailyPid = d => F.ileri(((d * 13 + 5) % PUZZLES.length + PUZZLES.length) % PUZZLES.length, PUZZLES.length, puzzleOk);
 const isPangram = w => new Set(w).size === 7;
 const points = w => (w.length === 4 ? 1 : w.length) + (isPangram(w) ? 7 : 0);
 const scoreOf = ws => ws.reduce((s, w) => s + points(w), 0);
@@ -500,14 +507,14 @@ function start(m, fresh = false) {
     day = dayIndex();
     pid = dailyPid(day);
     s = store.get("petek-daily", null);
-    if (!s || s.day !== day) s = null;
+    if (!s || s.day !== day || (s.pid !== undefined && s.pid !== pid)) s = null;
   } else {
     s = fresh ? null : store.get("petek-practice", null);
-    if (s && !PUZZLES[s.pid]) s = null;
+    if (s && (!PUZZLES[s.pid] || !puzzleOk(s.pid))) s = null;
     if (s) pid = s.pid;
     else {
       let p;
-      do p = Math.floor(Math.random() * PUZZLES.length); while (p === pid || p === dailyPid(dayIndex()));
+      p = F.rastgele(PUZZLES.length, puzzleOk, pid, dailyPid(dayIndex()));
       pid = p;
     }
   }
@@ -530,7 +537,7 @@ function start(m, fresh = false) {
 }
 
 function save() {
-  if (mode === "daily") store.set("petek-daily", { day, found });
+  if (mode === "daily") store.set("petek-daily", { day, pid, found });
   else store.set("petek-practice", { pid, found, revealed });
 }
 

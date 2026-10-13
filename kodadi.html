@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Kod Adı — İpucundan Gizli Kelimeleri Bul</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#efefec; --soft:#f7f7f5;
+  --blue:#6f9bd1; --blue-bg:#e6eef9; --red:#d9735e; --red-bg:#f8e6e1; --neutral:#e6dcc6; --black:#2a2a2c;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --gw:min(560px, calc(100vw - 24px));
+}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+.app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+
+header{flex:none;border-bottom:1px solid var(--line)}
+.bar{max-width:600px;margin:0 auto;height:60px;padding:0 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bar .right{display:flex;justify-content:flex-end;gap:2px}
+.title{font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;line-height:1}
+.ib{width:40px;height:40px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:background-color .25s var(--ease),transform .15s var(--ease)}
+.ib:hover{background:var(--soft)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+main{flex:1;width:100%;max-width:600px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px 12px calc(24px + env(safe-area-inset-bottom))}
+.sub{display:flex;align-items:center;justify-content:center;gap:10px;font-size:13px;color:var(--muted);min-height:26px;flex-wrap:wrap}
+.sub .dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background-color .25s var(--ease),border-color .25s}
+.chip:hover{background:var(--soft);border-color:var(--line-strong)}
+
+.score{width:var(--gw);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.team{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#3a3a3d}
+.team.r{justify-content:flex-end}
+.team b{font-size:22px;font-variant-numeric:tabular-nums;line-height:1}
+.team.b b{color:var(--blue)}
+.team.r b{color:var(--red)}
+.team.turn{color:var(--ink)}
+.team.turn::after{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.team.r.turn::after{order:-1}
+.turnlbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.clue{width:var(--gw);min-height:62px;border-radius:14px;background:var(--blue-bg);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;transition:background-color .35s var(--ease)}
+.clue.red{background:var(--red-bg)}
+.clue.idle{background:var(--soft)}
+.clue small{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4f78a8}
+.clue.red small{color:#a5523f}
+.clue.idle small{color:var(--muted)}
+.clue b{display:block;font-size:22px;letter-spacing:.04em;margin-top:2px}
+.clue b em{font-style:normal;color:var(--muted);font-weight:600;margin-left:8px}
+.clue .left{text-align:right;font-size:12.5px;color:#3a3a3d;white-space:nowrap}
+.clue .left b{font-size:20px;margin:0}
+.clue.new{animation:pop .45s var(--ease)}
+
+.grid{width:var(--gw);display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.card{position:relative;aspect-ratio:1.25;border:0;border-radius:10px;background:#f4f1ea;box-shadow:inset 0 -3px 0 rgba(0,0,0,.06);cursor:pointer;padding:0 3px;
+  display:grid;place-items:center;font-weight:700;text-align:center;line-height:1.05;letter-spacing:.01em;
+  font-size:clamp(9px, calc(var(--gw) / 5 * 1.18 / var(--l)), 15px);
+  transition:background-color .35s var(--ease),color .35s,transform .15s var(--ease),opacity .3s}
+.card:hover{background:#ece7dc}
+.card:active{transform:scale(.95)}
+.card.flip{animation:flip .5s var(--ease)}
+.card[data-r="0"].open{background:var(--blue);color:#fff;box-shadow:none}
+.card[data-r="1"].open{background:var(--red);color:#fff;box-shadow:none}
+.card[data-r="2"].open{background:var(--neutral);color:#8a7d60;box-shadow:none}
+.card[data-r="3"].open{background:var(--black);color:#fff;box-shadow:none}
+.card.open{cursor:default}
+.card.target{outline:2px dashed var(--blue);outline-offset:-4px}
+/* anlatıcı haritası / oyun sonu: açılmamış kartların rengini soluk göster */
+.grid.key .card:not(.open)[data-r="0"]{background:var(--blue-bg);color:#3c6aa3}
+.grid.key .card:not(.open)[data-r="1"]{background:var(--red-bg);color:#a5523f}
+.grid.key .card:not(.open)[data-r="3"]{background:#cfcfcf;color:#2a2a2c}
+.grid.done .card{cursor:default}
+
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:12px 20px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+
+@keyframes flip{0%{transform:rotateY(0)}50%{transform:rotateY(90deg)}100%{transform:rotateY(0)}}
+@keyframes pop{0%{transform:scale(.96);opacity:.5}100%{transform:none;opacity:1}}
+
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s var(--ease),transform .35s var(--ease);white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-6px) scale(.97)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+
+.scrim{position:fixed;inset:0;background:rgba(250,250,248,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:20px;z-index:50;pointer-events:none}
+.mcard{width:100%;max-width:420px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(20,20,20,.12),0 2px 8px rgba(20,20,20,.04);padding:26px 26px 24px;position:relative;opacity:0;transform:translateY(14px) scale(.975);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.modal.open{pointer-events:auto}
+.modal.open .mcard{opacity:1;transform:none}
+.mcard h2{font-weight:700;font-size:21px;margin:0 0 14px;letter-spacing:-.015em}
+.mcard h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px}
+.mcard p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#3a3a3d}
+.mcard ul{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.6;color:#3a3a3d}
+.close{position:absolute;top:14px;right:14px}
+.hr{height:1px;background:var(--line);margin:18px 0}
+.note{font-size:13px!important;color:var(--muted)!important}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;font-size:14px}
+.legend i{width:22px;height:18px;border-radius:5px}
+.keymap{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:6px 0 4px}
+.keymap span{aspect-ratio:1.25;border-radius:6px;display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#fff;text-align:center;line-height:1.05;padding:0 2px;overflow:hidden}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats b{display:block;font-size:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.result{text-align:center}
+.result .big{font-size:36px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.result p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.clues-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.clues-list div{background:var(--soft);border-radius:9px;padding:8px 12px;font-size:13.5px}
+.clues-list b{letter-spacing:.04em}
+.foot{display:flex;align-items:center;gap:16px;margin-top:22px}
+.foot>div{flex:1}
+.foot small{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.clock{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.confirm{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
+.dh .brand{font-weight:700;font-size:20px;letter-spacing:-.015em}
+.dh small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;letter-spacing:0}
+.item{width:100%;border:0;background:transparent;display:flex;align-items:center;gap:14px;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;text-decoration:none;color:inherit;opacity:0;transform:translateX(-10px);transition:opacity .45s var(--ease),transform .55s var(--ease),background-color .25s var(--ease)}
+.drawer.open .item{opacity:1;transform:none;transition-delay:calc(var(--i) * 45ms + 120ms),calc(var(--i) * 45ms + 120ms),0s}
+.item:hover{background:var(--soft)}
+.item.on{background:var(--soft);font-weight:600}
+.item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.item.on svg{color:var(--ink)}
+.sep{height:1px;background:var(--line);margin:10px 8px}
+.dfoot{margin-top:auto;padding:0 12px;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div><button class="ib" id="menuBtn" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button></div>
+      <h1 class="title">Kod Adı</h1>
+      <div class="right">
+        <button class="ib" data-open="help" aria-label="Nasıl oynanır"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg></button>
+        <button class="ib" data-open="stats" aria-label="İstatistikler"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="score">
+      <div class="team b" id="tb"><b id="nb">9</b>Mavi</div>
+      <div class="turnlbl" id="turnlbl"></div>
+      <div class="team r" id="tr">Kırmızı<b id="nr">8</b></div>
+    </div>
+    <div class="clue" id="clue"></div>
+    <div class="grid" id="grid"></div>
+    <div class="actions" id="actions"></div>
+  </main>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
+
+<nav class="drawer" id="drawer" aria-label="Menü">
+  <div class="dh">
+    <div class="brand">Kod Adı<small>Haber Oyunları</small></div>
+    <button class="ib" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button class="item" style="--i:0" data-mode="daily"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Günün Oyunu</button>
+  <button class="item" style="--i:1" data-mode="practice"><svg viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3M18 4l2 3-2 3M18 14l2 3-2 3"/></svg>Pratik Modu</button>
+  <button class="item" style="--i:2" data-mode="team"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M3 19c.8-3 2.8-4.5 5-4.5s4.2 1.5 5 4.5M11 19c.8-3 2.8-4.5 5-4.5s4.2 1.5 5 4.5"/></svg>Arkadaşlarla Oyna</button>
+  <div class="sep"></div>
+  <button class="item" style="--i:3" data-open="help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>Nasıl Oynanır</button>
+  <button class="item" style="--i:4" data-open="stats"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>İstatistikler</button>
+  <div class="sep"></div>
+  <a class="item" style="--i:5" href="index.html"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Tüm Oyunlar</a>
+  <div class="dfoot">Her gün yeni bir görev.</div>
+</nav>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpT">
+  <div class="mcard">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="helpT">Nasıl Oynanır</h2>
+    <p>25 kelimenin arasında takımınızın <b>9 gizli ajanı</b> var. Anlatıcının ipucundan yola çıkarak onları bulun.</p>
+    <ul>
+      <li>İpucu bir kelime ve bir sayıdır: <b>KİLİT · 2</b>, “kilit”le ilgili iki kelime arıyorsunuz demektir.</li>
+      <li>Sayının bir fazlası kadar tahmin hakkınız olur. Yanlış renge dokunursanız sıra rakibe geçer.</li>
+      <li><b>Suikastçıya</b> dokunursanız oyunu hemen kaybedersiniz.</li>
+    </ul>
+    <h3>Renkler</h3>
+    <div class="legend">
+      <i style="background:var(--blue)"></i><span>Sizin takımınız (Mavi)</span>
+      <i style="background:var(--red)"></i><span>Rakip takım (Kırmızı)</span>
+      <i style="background:var(--neutral)"></i><span>Tarafsız — sıranız biter</span>
+      <i style="background:var(--black)"></i><span>Suikastçı — oyun biter</span>
+    </div>
+    <h3>Modlar</h3>
+    <p><b>Günün oyunu</b> ve <b>pratik</b>: ipuçlarını yapay zekâ verir; her turun sonunda rakip takım da bir ajanını bulur. Rakipten önce 9 ajanı bulun.</p>
+    <p><b>Arkadaşlarla</b>: iki takım, aynı cihaz. Her takımın anlatıcısı “Anlatıcı haritası”na sadece kendisi bakar ve ipucunu sesli söyler.</p>
+    <div class="hr"></div>
+    <p class="note">İpuçları, milyonlarca Türkçe metinle eğitilmiş bir yapay zekâ modelindeki kelime benzerliklerinden üretilir; bazen beklenmedik olabilir.</p>
+  </div>
+</div>
+
+<div class="modal" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsT">
+  <div class="mcard">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="statsT">İstatistikler</h2>
+    <div id="resultBox"></div>
+    <div class="stats" id="statNums"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<div class="modal" id="keyWarn" role="dialog" aria-modal="true" aria-labelledby="kwT">
+  <div class="mcard">
+    <h2 id="kwT">Anlatıcı haritası</h2>
+    <p>Haritayı yalnızca <b id="kwTeam"></b> takımın anlatıcısı görmeli. Diğerleri ekrana bakmasın!</p>
+    <div class="confirm"><button class="btn ghost" data-close>Vazgeç</button><button class="btn" id="kwYes">Haritayı göster</button></div>
+  </div>
+</div>
+
+<div class="modal" id="keyMap" role="dialog" aria-modal="true" aria-labelledby="kmT">
+  <div class="mcard">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="kmT">Anlatıcı haritası</h2>
+    <div class="keymap" id="keymapGrid"></div>
+    <p class="note">Takımınızın kelimelerini bağlayan tek kelimelik bir ipucu ve bir sayı söyleyin. Bitince bu pencereyi kapatın.</p>
+  </div>
+</div>
+
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
+<script>
+const F = window.Filtre || { yasak: () => false, ileri: i => i, rastgele: n => Math.floor(Math.random() * n) };
+/* w: 25 kelime, r: roller (0 mavi, 1 kırmızı, 2 tarafsız, 3 suikastçı), c: yapay zekâ ipuçları [kelime, hedef kartlar] */
+const BOARDS = [{"w":["robot","kapı","anahtar","zehir","ışık","masa","tilki","virüs","koltuk","kutu","tatil","peynir","turuncu","kan","toprak","halı","kılıç","aslan","kütüphane","yaprak","ada","hastane","ses","oyun","büyü"],"r":"0002121222112130100010210","c":[{"c":"kilit","t":[2,1]},{"c":"üniversite","t":[21,18]},{"c":"dal","t":[19]},{"c":"dua","t":[24]},{"c":"tekstil","t":[15]},{"c":"akıllı","t":[0]},{"c":"kral","t":[17]}]},
+{"w":["ses","şah","büyü","ayak","koltuk","ayı","buz","karınca","sır","harf","beyin","çizgi","dalga","mum","sandalye","kurt","valiz","bahar","mahkeme","yargıç","haber","makas","yatak","kazak","saç"],"r":"1222103210100121001202010","c":[{"c":"nisan","t":[5,17]},{"c":"duyuru","t":[20]},{"c":"çanta","t":[16]},{"c":"alay","t":[12]},{"c":"animasyon","t":[11]},{"c":"cilt","t":[24]},{"c":"oda","t":[22]},{"c":"rakam","t":[9]}]},
+{"w":["taş","hakem","yay","kalem","hastane","tohum","mantar","masal","plaj","baklava","elmas","otel","inek","portakal","gözlük","kare","kan","virüs","beyaz","cami","gölge","para","burun","üçgen","yüz"],"r":"3111000000110102222212210","c":[{"c":"elli","t":[24]},{"c":"keçi","t":[12]},{"c":"öykü","t":[7]},{"c":"bitki","t":[5,6]},{"c":"klinik","t":[4]},{"c":"sahil","t":[8]},{"c":"pasta","t":[9]},{"c":"kıyafet","t":[14]}]},
+{"w":["sabah","şehir","ay","zürafa","lamba","tren","diş","kova","resim","bilet","tabak","telefon","vezir","gazete","şeker","simit","okul","ateş","armut","şiir","yılan","banka","kemik","tiyatro","kamera"],"r":"2120201112211020201000031","c":[{"c":"dergi","t":[13]},{"c":"metro","t":[5]},{"c":"kas","t":[22]},{"c":"kuş","t":[20,3]},{"c":"finans","t":[21]},{"c":"öykü","t":[19]},{"c":"pide","t":[15]},{"c":"duman","t":[17]}]},
+{"w":["zar","kalp","tavşan","gemi","bulut","orkestra","televizyon","pembe","cam","anahtar","tohum","keçi","virüs","çekiç","gri","düğme","çorba","pilav","kum","asker","deve","haber","ilaç","maymun","kılıç"],"r":"2010111021110202021230002","c":[{"c":"mavi","t":[7,14]},{"c":"tekne","t":[3]},{"c":"hap","t":[22]},{"c":"bakteri","t":[12]},{"c":"beyin","t":[1]},{"c":"duyuru","t":[21]},{"c":"kaşık","t":[16]},{"c":"robot","t":[23]}]},
+{"w":["kapı","portakal","hastane","otobüs","yüz","şah","iğne","ada","çadır","nokta","mutfak","hayalet","tilki","masa","biber","ses","sihir","örümcek","merdiven","hapis","fırça","avukat","kazak","valiz","ipek"],"r":"1201311012002220202001110","c":[{"c":"müebbet","t":[19]},{"c":"gürültü","t":[15]},{"c":"banyo","t":[10]},{"c":"klinik","t":[2]},{"c":"kasaba","t":[11,7]},{"c":"pamuk","t":[24]},{"c":"boya","t":[20]},{"c":"böcek","t":[17]}]},
+{"w":["peynir","kamera","çatal","asker","demir","tuz","lamba","fil","kare","göz","fırça","yumurta","kitap","ayakkabı","cevap","kalp","ayna","sabun","bayram","yaz","radar","gece","yıldız","çilek","pilav"],"r":"1202013010101022200102112","c":[{"c":"çelik","t":[4]},{"c":"elbise","t":[13]},{"c":"yavru","t":[11,7]},{"c":"kulak","t":[9]},{"c":"kutlama","t":[18]},{"c":"füze","t":[20]},{"c":"kaşık","t":[2]},{"c":"tekstil","t":[17]}]},
+{"w":["akşam","çöl","horoz","asker","düğün","baklava","mutfak","kova","kum","siyah","futbol","yargıç","kahve","renk","penguen","eldiven","sandalye","koyun","köy","kılıç","nehir","beyaz","para","hapis","bilet"],"r":"0001022101220213100102121","c":[{"c":"sabah","t":[0]},{"c":"mahalle","t":[18]},{"c":"deniz","t":[20,8,1]},{"c":"çay","t":[12]},{"c":"evlilik","t":[4]},{"c":"keçi","t":[17,2]}]},
+{"w":["ayna","at","tenis","zehir","çadır","yaprak","taş","beyin","cam","valiz","televizyon","dondurma","balık","sandalye","radyo","mutfak","piyano","göz","şiir","kale","şifre","davul","bahçe","masal","altın"],"r":"0132210002020111200121021","c":[{"c":"kafa","t":[17,7]},{"c":"plastik","t":[8]},{"c":"kaya","t":[6]},{"c":"yazı","t":[18]},{"c":"tavuk","t":[12]},{"c":"park","t":[22]},{"c":"ekran","t":[10]},{"c":"ışık","t":[0]}]},
+{"w":["üzüm","kütüphane","maymun","uçak","yumurta","kral","daire","çikolata","diş","pamuk","banyo","peynir","pilav","dondurma","hırsız","çadır","sinema","rüya","basketbol","kitap","kupa","ayakkabı","gol","perde","kare"],"r":"2000212120232101102101100","c":[{"c":"uçuş","t":[3]},{"c":"ipek","t":[9]},{"c":"zeki","t":[2,14]},{"c":"müze","t":[1]},{"c":"şampiyonluk","t":[20]},{"c":"metre","t":[24]},{"c":"pencere","t":[23]},{"c":"gerçek","t":[17]}]},
+{"w":["gezegen","bilet","keçi","pencere","tiyatro","nehir","gitar","muz","lamba","gol","boya","doğum","saat","madalya","bahçe","pamuk","zehir","örümcek","çiçek","kazak","kapı","ekmek","saç","kalp","liman"],"r":"2001202020112300112200111","c":[{"c":"buğday","t":[15,21]},{"c":"koyun","t":[2]},{"c":"asist","t":[9]},{"c":"göl","t":[5]},{"c":"bagaj","t":[1,20]},{"c":"elma","t":[7]},{"c":"park","t":[14]}]},
+{"w":["saray","kulak","bilet","telefon","yelken","pasta","ipek","horoz","eşek","kalkan","radar","dağ","peynir","akşam","güneş","soru","mor","penguen","şah","robot","roman","örümcek","çiçek","yüz","oyun"],"r":"2020220131021100021101021","c":[{"c":"mavi","t":[16]},{"c":"öykü","t":[20]},{"c":"cevap","t":[15]},{"c":"sinyal","t":[10,3]},{"c":"burun","t":[1]},{"c":"gül","t":[22,6]},{"c":"ışık","t":[14]}]},
+{"w":["davul","aşı","telefon","gül","mutfak","yağmur","üzüm","ayakkabı","mahkeme","piyano","bahçe","ok","halı","hapis","kemik","şişe","kırmızı","turuncu","ajan","kral","kilit","para","simit","resim","muz"],"r":"1000211122020012130120012","c":[{"c":"nakit","t":[21]},{"c":"müebbet","t":[13]},{"c":"çiçek","t":[3]},{"c":"virüs","t":[1,18]},{"c":"adres","t":[2]},{"c":"köfte","t":[22]},{"c":"orman","t":[10]},{"c":"saha","t":[12]}]},
+{"w":["şarkı","kalem","çay","para","doktor","harita","gece","kırmızı","burun","yatak","haber","çizgi","kelebek","kutu","pasaport","zürafa","kapı","uydu","sinema","bulmaca","nokta","eldiven","lamba","gül","orkestra"],"r":"1200201102120100201132201","c":[{"c":"kahve","t":[2]},{"c":"vize","t":[14]},{"c":"ağız","t":[8]},{"c":"nakit","t":[3]},{"c":"çiçek","t":[23,12]},{"c":"adres","t":[5]},{"c":"frekans","t":[17]},{"c":"kuş","t":[15]}]},
+{"w":["yüzük","köpek","resim","kış","asker","ekmek","şapka","sabun","şeker","bal","pamuk","saç","araba","tavuk","para","kum","gözlük","nokta","şarkı","mor","kamp","gri","düğme","film","çay"],"r":"3010201100121222011020201","c":[{"c":"mavi","t":[19,21]},{"c":"yaz","t":[3]},{"c":"sinema","t":[23]},{"c":"arı","t":[9]},{"c":"diyabet","t":[8]},{"c":"pide","t":[5]},{"c":"yavru","t":[1]},{"c":"optik","t":[16]}]},
+{"w":["ada","ateş","penguen","siyah","tren","telefon","kara","otobüs","masal","lokum","yılan","fener","bahçe","kelebek","robot","ay","banyo","göl","kütüphane","deve","yumurta","prens","dağ","hakem","sabun"],"r":"2011110100221321021202000","c":[{"c":"duş","t":[16]},{"c":"yoğurt","t":[20,24]},{"c":"öykü","t":[8]},{"c":"ikram","t":[9]},{"c":"isabet","t":[1]},{"c":"futbolcu","t":[23]},{"c":"tepe","t":[22]},{"c":"hava","t":[6]}]},
+{"w":["kare","futbol","tenis","şeker","zar","altın","bulmaca","gemi","resim","kupa","siyah","yumurta","mutfak","ilaç","renk","mum","lokum","burun","armut","buz","sır","yüz","bardak","çekiç","beyin"],"r":"1210001210021212102003012","c":[{"c":"soğuk","t":[19]},{"c":"madalya","t":[9,5]},{"c":"gizli","t":[20]},{"c":"ağız","t":[17]},{"c":"kaşık","t":[22]},{"c":"gri","t":[10]},{"c":"tansiyon","t":[3]},{"c":"zor","t":[4]}]},
+{"w":["bisiklet","üzüm","kazak","satranç","harita","yıldız","süt","boya","arı","yumurta","hastane","maymun","beyin","kedi","tenis","virüs","demir","avukat","altın","çay","şişe","kamera","çorap","kutu","kalkan"],"r":"1220001212022100100110312","c":[{"c":"doktor","t":[10,17]},{"c":"adres","t":[4]},{"c":"voleybol","t":[14,3]},{"c":"gümüş","t":[18]},{"c":"bakteri","t":[15]},{"c":"çekim","t":[21]},{"c":"oyuncu","t":[5]}]},
+{"w":["basketbol","bahçe","horoz","elmas","kupa","burun","saray","ekmek","muhabir","koltuk","orkestra","hapis","baklava","şapka","yelken","diş","ışık","yüz","portakal","saç","gece","manşet","masal","şifre","penguen"],"r":"3202121101002010021001122","c":[{"c":"gündüz","t":[20]},{"c":"müebbet","t":[11]},{"c":"gazeteci","t":[8]},{"c":"besteci","t":[10]},{"c":"aydınlık","t":[16]},{"c":"kıyafet","t":[13,19]},{"c":"dolgu","t":[15]},{"c":"keçi","t":[2]}]},
+{"w":["davul","şifre","radyo","beyin","kar","prens","çorap","doğum","çay","gözlük","uçak","çekiç","horoz","yaz","manşet","pusula","eldiven","okul","polis","cam","bilgisayar","zar","gezegen","maymun","pasta"],"r":"1021320102002010021121021","c":[{"c":"kahve","t":[8]},{"c":"uçuş","t":[10]},{"c":"kış","t":[13]},{"c":"bot","t":[6,16]},{"c":"kod","t":[1]},{"c":"yıldız","t":[22]},{"c":"yön","t":[15]},{"c":"bıçak","t":[11]}]},
+{"w":["sonbahar","ayakkabı","dans","harita","casus","soru","yelken","inek","şifre","yargıç","çatal","müze","kan","armut","süt","eşek","gölge","yüzük","şapka","kılıç","üzüm","ayna","banyo","bisiklet","gezegen"],"r":"0101001212002201011012232","c":[{"c":"kış","t":[0]},{"c":"bıçak","t":[10,19]},{"c":"cevap","t":[5]},{"c":"sergi","t":[11]},{"c":"yoğurt","t":[14]},{"c":"şarkı","t":[2]},{"c":"karanlık","t":[16]},{"c":"düşman","t":[4]}]},
+{"w":["orman","ejderha","otel","gezegen","tren","sır","tavşan","hakem","lokum","bahar","ayak","yüzük","masa","doktor","dans","haber","pasaport","araba","sihir","pencere","zar","gül","nokta","doğum","kartal"],"r":"0012000102121121100232120","c":[{"c":"kuş","t":[6,24,1]},{"c":"otobüs","t":[4,17]},{"c":"gizli","t":[5]},{"c":"tarım","t":[0]},{"c":"çikolata","t":[8]},{"c":"güzellik","t":[18]}]},
+{"w":["makas","asker","eşek","halı","armut","fener","yeşil","yumurta","kamera","avukat","ejderha","yargıç","hakem","kapı","dans","kırmızı","limon","ajan","gece","şişe","resim","haber","cam","doğum","yaz"],"r":"1012210021100202012100132","c":[{"c":"tereyağı","t":[7,16]},{"c":"müzik","t":[14,20]},{"c":"şehit","t":[1]},{"c":"jüri","t":[11,12]},{"c":"duyuru","t":[21]},{"c":"ormanlık","t":[6]}]},
+{"w":["kartal","kum","tuz","ruh","üçgen","şişe","madalya","saç","diş","aşı","virüs","hastane","çivi","kutu","kalem","kolye","göz","gölge","yatak","valiz","radyo","ses","hırsız","mum","deniz"],"r":"3101101202222001101020102","c":[{"c":"ışık","t":[23,17,21]},{"c":"paket","t":[13,19]},{"c":"bardak","t":[5]},{"c":"ağız","t":[8]},{"c":"tereyağı","t":[2]},{"c":"yazıcı","t":[14]}]},
+{"w":["kulak","elmas","nehir","ayak","ada","polis","bıçak","buz","üçgen","kalem","çivi","ahtapot","kedi","telefon","gitar","gölge","banka","taş","kaşık","çekiç","diş","radyo","çiçek","okul","uzay"],"r":"0201231102112002002120101","c":[{"c":"müzik","t":[14,21]},{"c":"dere","t":[2]},{"c":"lise","t":[23]},{"c":"adres","t":[13]},{"c":"yuvarlak","t":[8]},{"c":"finans","t":[16]},{"c":"burun","t":[0]},{"c":"ahşap","t":[17]}]},
+{"w":["kale","şemsiye","muhabir","taş","futbol","ağaç","yeşil","bulut","köpek","yay","çadır","mantar","kitap","orkestra","kaşık","turuncu","ajan","göz","masal","bardak","çöl","pencere","yüzük","basketbol","uçak"],"r":"1212320102010220011100021","c":[{"c":"mavi","t":[15,6]},{"c":"kolye","t":[22]},{"c":"kapı","t":[21]},{"c":"yavru","t":[8]},{"c":"dergi","t":[12]},{"c":"kamp","t":[10]},{"c":"dağlık","t":[20]},{"c":"suçlu","t":[16]}]},
+{"w":["dans","kolye","saç","bayram","saray","hırsız","boya","yargıç","uzay","rüya","kelime","kara","biber","mutfak","resim","altın","tohum","yatak","sinema","dil","yılan","radyo","bilet","televizyon","polis"],"r":"1010210211222002000211130","c":[{"c":"jandarma","t":[24]},{"c":"fotoğraf","t":[14]},{"c":"cuma","t":[3]},{"c":"temizlik","t":[13,6]},{"c":"tiyatro","t":[18]},{"c":"oda","t":[17]},{"c":"meyve","t":[16]},{"c":"çanta","t":[1]}]},
+{"w":["peynir","kara","şişe","elma","ses","tatil","penguen","nehir","prens","kutu","saat","yaprak","top","harf","avukat","siyah","bilet","tuz","vezir","taş","mum","şiir","tiyatro","kahve","şifre"],"r":"2121102213000100021012201","c":[{"c":"beyaz","t":[15]},{"c":"dakika","t":[10]},{"c":"çay","t":[23]},{"c":"rezervasyon","t":[16,5]},{"c":"savcı","t":[14]},{"c":"beton","t":[19]},{"c":"pas","t":[12]},{"c":"dal","t":[11]}]},
+{"w":["nokta","üçgen","tiyatro","roman","yaz","boya","davul","çizgi","avukat","kutu","radyo","yargıç","limon","gitar","aslan","gezegen","eldiven","lamba","ahtapot","kemik","şiir","cami","pilav","saat","valiz"],"r":"1101001122220020221100013","c":[{"c":"portakal","t":[12]},{"c":"kış","t":[4]},{"c":"kilise","t":[21]},{"c":"sinema","t":[2]},{"c":"piyano","t":[13]},{"c":"sulu","t":[22,5]},{"c":"şarkı","t":[20]},{"c":"gök","t":[15]}]},
+{"w":["kütüphane","heykel","madalya","masa","yumurta","mahkeme","harita","piyon","çekiç","kral","kara","gezegen","üçgen","kan","hapis","dalga","pencere","dağ","düğün","şiir","uydu","şişe","dedektif","ayakkabı","horoz"],"r":"1120102201130012202002011","c":[{"c":"öykü","t":[19]},{"c":"avukat","t":[22,5]},{"c":"gözyaşı","t":[13]},{"c":"yuvarlak","t":[12,3]},{"c":"tepe","t":[17]},{"c":"radyo","t":[20]},{"c":"bıçak","t":[8]}]},
+{"w":["maymun","göz","kare","cevap","aşı","arı","ayı","avukat","mantar","kalem","demir","şah","resim","tabak","harita","eşek","top","tavşan","havlu","şiir","perde","okul","siyah","uzay","sabun"],"r":"1202020020110312220111010","c":[{"c":"beyaz","t":[22]},{"c":"mart","t":[6]},{"c":"fotoğraf","t":[12]},{"c":"banyo","t":[24,18]},{"c":"savcı","t":[7]},{"c":"yazıcı","t":[9]},{"c":"metre","t":[2]},{"c":"ilaç","t":[4]}]},
+{"w":["tavşan","cami","araba","göz","pasta","kalp","casus","hapis","örümcek","merdiven","oyun","gitar","muhabir","kebap","rüya","tiyatro","tabak","çorba","dans","peynir","nehir","havlu","altın","yağmur","gazete"],"r":"2202101103011102001012022","c":[{"c":"pirinç","t":[16,17,22]},{"c":"otomobil","t":[2]},{"c":"tereyağı","t":[19]},{"c":"atış","t":[10,5]},{"c":"gerçek","t":[14]},{"c":"ağı","t":[8]}]},
+{"w":["horoz","kelime","çikolata","kırmızı","ok","ahtapot","şapka","tatil","kılıç","renk","tilki","top","keçi","çizgi","manşet","armut","ilaç","masal","demir","liman","çiçek","şifre","futbol","iğne","pencere"],"r":"3001120001102221011001222","c":[{"c":"sözcük","t":[1]},{"c":"gül","t":[20]},{"c":"dondurma","t":[2]},{"c":"otel","t":[7,19]},{"c":"tıbbi","t":[16]},{"c":"tank","t":[11]},{"c":"bıçak","t":[8]},{"c":"çanta","t":[6]}]},
+{"w":["dalga","dil","kartal","diş","kule","inek","roman","ceket","nokta","hapis","bahar","bıçak","saat","yağmur","gözlük","büyü","güneş","balık","piyon","basketbol","kale","okul","top","ada","iğne"],"r":"2132201012000102202011011","c":[{"c":"voleybol","t":[19]},{"c":"elbise","t":[7]},{"c":"dakika","t":[12]},{"c":"tavuk","t":[5,17]},{"c":"yaz","t":[10]},{"c":"kesici","t":[11]},{"c":"ayakkabı","t":[14]},{"c":"atış","t":[22]}]},
+{"w":["anahtar","köpek","dil","deniz","kare","çay","kilit","kitap","armut","kova","şapka","beyaz","yılan","zürafa","fener","balina","banyo","piyano","ışık","üçgen","ağaç","gri","yay","masa","şah"],"r":"1000011021212222100013201","c":[{"c":"roman","t":[7]},{"c":"sahil","t":[3]},{"c":"klavye","t":[17,2]},{"c":"sandalye","t":[23]},{"c":"görüntü","t":[18,4]},{"c":"yavru","t":[1]},{"c":"dik","t":[19]}]},
+{"w":["saray","kahve","dağ","casus","kilit","simit","burun","heykel","resim","yılan","köy","ağaç","süt","kemik","televizyon","armut","bahçe","koyun","mahkeme","kamp","nehir","kırmızı","ses","tiyatro","elma"],"r":"0122010010022212210113100","c":[{"c":"kasaba","t":[10]},{"c":"dava","t":[18]},{"c":"mimarlık","t":[7,23]},{"c":"ağız","t":[6]},{"c":"önemli","t":[4]},{"c":"limon","t":[24]},{"c":"cumhurbaşkanlığı","t":[0]},{"c":"fare","t":[9]}]},
+{"w":["liman","hastane","bıçak","kral","ahtapot","lamba","kilit","yıldız","eşek","zar","siyah","kule","davul","armut","gri","tohum","dalga","kahve","daire","sır","çatal","otobüs","polis","saç","tavuk"],"r":"1002120120211132112000002","c":[{"c":"ambulans","t":[21,1,22]},{"c":"gizli","t":[19]},{"c":"kaşık","t":[20,2]},{"c":"önemli","t":[6]},{"c":"cilt","t":[23]},{"c":"zor","t":[9]}]},
+{"w":["beyaz","süt","bayram","yılan","saat","tren","yumurta","pembe","roman","göl","orkestra","harita","çanta","gözlük","sır","gül","çorap","muhabir","çilek","sandalye","uzay","iğne","güneş","vezir","davul"],"r":"2001000100011121120321222","c":[{"c":"öykü","t":[8]},{"c":"dakika","t":[4]},{"c":"tereyağı","t":[6,1]},{"c":"metro","t":[5]},{"c":"cuma","t":[2]},{"c":"dere","t":[9]},{"c":"besteci","t":[10]},{"c":"patates","t":[18]}]},
+{"w":["cam","daire","ayna","kitap","nehir","ışık","kamp","zar","büyü","bilgisayar","cevap","baklava","sandalye","otobüs","soru","kelime","pilav","ejderha","bal","şarkı","casus","pasaport","kalem","ipek","yatak"],"r":"0010012102321121002211020","c":[{"c":"dere","t":[4]},{"c":"oda","t":[24,1]},{"c":"plastik","t":[0]},{"c":"dergi","t":[3]},{"c":"fantastik","t":[8,17]},{"c":"çorba","t":[16]},{"c":"kurşun","t":[22]}]},
+{"w":["balık","yaprak","daire","kelebek","yatak","pamuk","demir","pasaport","yumurta","polis","orkestra","hapis","oyun","saat","ağaç","ekmek","muz","beyaz","kare","soru","maymun","çizgi","koltuk","şah","mutfak"],"r":"2222020132110100100101012","c":[{"c":"siyah","t":[17]},{"c":"çelik","t":[6]},{"c":"sandalye","t":[22,4]},{"c":"orman","t":[14]},{"c":"oynama","t":[12]},{"c":"pide","t":[15]},{"c":"zeki","t":[20]},{"c":"fotoğraf","t":[18]}]}];
+/* ayarlar.js: yasaklı kelime içeren tahtayı atla */
+const puzzleOk = i => !BOARDS[i].w.some(w => F.yasak(w)) && !BOARDS[i].c.some(c => F.yasak(c.c));
+
+const EPOCH = new Date(2026, 0, 1);
+const NAMES = ["Mavi", "Kırmızı"];
+const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+const SQ = ["🟦", "🟥", "⬜", "⬛"];
+
+const $ = s => document.querySelector(s);
+const up = s => String(s).toLocaleUpperCase("tr-TR");
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+let stats = store.get("kodadi-stats", { played: 0, wins: 0, turns: 0, streak: 0, best: 0, lastWin: null });
+let mode, day, pid, B, roles, opened, log, turn, clueIdx, guessesLeft, over, result, busy = false;
+// opened: açılan kart sırası; log: [{t:"c"|"p"|"o", i}] — ipucu, oyuncu ve rakip hamleleri
+
+function dayIndex() {
+  const n = new Date();
+  return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
+}
+const dailyPid = d => F.ileri(((d * 7 + 5) % BOARDS.length + BOARDS.length) % BOARDS.length, BOARDS.length, puzzleOk);
+const left = team => roles.reduce((n, r, i) => n + (r === team && !opened.includes(i) ? 1 : 0), 0);
+const solo = () => mode !== "team";
+
+/* ---------- Render ---------- */
+const grid = $("#grid");
+function build() {
+  grid.innerHTML = B.w.map((w, i) => `<button class="card" data-i="${i}" data-r="${roles[i]}" style="--l:${Math.max(5, [...w].length)}">${up(w)}</button>`).join("");
+}
+function render(flipIdx = -1) {
+  grid.querySelectorAll(".card").forEach((el, i) => {
+    el.classList.toggle("open", opened.includes(i));
+    if (i === flipIdx) { el.classList.remove("flip"); void el.offsetWidth; el.classList.add("flip"); }
+  });
+  grid.classList.toggle("key", over);
+  grid.classList.toggle("done", over);
+  $("#nb").textContent = left(0);
+  $("#nr").textContent = left(1);
+  $("#tb").classList.toggle("turn", !over && turn === 0);
+  $("#tr").classList.toggle("turn", !over && turn === 1);
+  $("#turnlbl").textContent = over ? "" : solo() ? `${turnCount()}. tur` : `Sıra: ${NAMES[turn]}`;
+  renderClue();
+  renderActions();
+}
+function turnCount() { return log.filter(e => e.t === "c").length; }
+function curClue() { return solo() && clueIdx >= 0 ? B.c[clueIdx] : null; }
+function renderClue() {
+  const el = $("#clue");
+  if (over) {
+    el.className = "clue idle";
+    el.innerHTML = `<div><small>Oyun bitti</small><b>${result === "win" ? (solo() ? "Görev tamam!" : `${NAMES[winner()]} takım kazandı!`) : solo() ? "Görev başarısız" : `${NAMES[winner()]} takım kazandı!`}</b></div>`;
+    return;
+  }
+  if (solo()) {
+    const c = curClue();
+    const n = c ? c.t.filter(i => !opened.includes(i)).length : 0;
+    el.className = "clue";
+    el.innerHTML = `<div><small>Anlatıcının ipucu</small><b>${c ? up(c.c) : "—"}<em>${n}</em></b></div><div class="left">Kalan tahmin<br><b>${guessesLeft}</b></div>`;
+  } else {
+    el.className = "clue" + (turn === 1 ? " red" : "");
+    el.innerHTML = `<div><small>${NAMES[turn]} takımın sırası</small><b style="font-size:16px;letter-spacing:0">Anlatıcı ipucunu sesli söylesin</b></div>`;
+  }
+}
+function renderActions() {
+  const a = $("#actions");
+  if (over) {
+    a.innerHTML = mode === "daily" ? `<button class="btn ghost" data-open="stats">Sonuçlar</button>`
+      : `<button class="btn ghost" data-open="stats">Sonuçlar</button><button class="btn" id="againBtn">Yeni oyun</button>`;
+    const ag = $("#againBtn"); if (ag) ag.onclick = () => start(mode, true);
+    return;
+  }
+  a.innerHTML = (solo() ? "" : `<button class="btn ghost" id="mapBtn">Anlatıcı haritası</button>`) + `<button class="btn" id="endBtn">Turu bitir</button>`;
+  $("#endBtn").onclick = () => { if (!busy) endTurn("Tur bitti"); };
+  const mb = $("#mapBtn"); if (mb) mb.onclick = () => { $("#kwTeam").textContent = NAMES[turn]; open("keyWarn"); };
+}
+
+/* ---------- Oyun ---------- */
+grid.addEventListener("click", e => {
+  const el = e.target.closest(".card");
+  if (!el || over || busy || isOpen()) return;
+  pick(+el.dataset.i);
+});
+function pick(i) {
+  if (opened.includes(i)) return;
+  opened.push(i);
+  log.push({ t: "p", i, team: turn });
+  const r = roles[i];
+  render(i);
+  if (r === 3) return finish(solo() ? "lose" : "assassin");
+  if (left(0) === 0) return finish(solo() || turn === 0 ? "win" : "lose");
+  if (left(1) === 0) return finish(solo() ? "lose" : turn === 1 ? "win" : "lose");
+  if (r === turn) {
+    guessesLeft--;
+    toast("Doğru!");
+    if (solo() && guessesLeft <= 0) return endTurn("Tahmin hakkınız bitti");
+  } else {
+    endTurn(r === 2 ? "Tarafsız kart, sıra rakipte" : "Rakibin ajanı! Sıra rakipte");
+  }
+  save();
+}
+async function endTurn(msg) {
+  toast(msg);
+  if (!solo()) {
+    turn = 1 - turn;
+    save(); render();
+    return;
+  }
+  // tek kişilik: rakip bir ajanını bulur, sonra yeni ipucu gelir
+  busy = true;
+  await wait(900);
+  const reds = roles.map((r, i) => r === 1 && !opened.includes(i) ? i : -1).filter(i => i >= 0);
+  if (reds.length) {
+    const i = reds[Math.floor(Math.random() * reds.length)];
+    opened.push(i);
+    log.push({ t: "o", i });
+    turn = 1; render(i);
+    toast(`Rakip takım “${up(B.w[i])}” ajanını buldu`, 1700);
+    await wait(1100);
+    if (left(1) === 0) { busy = false; return finish("lose"); }
+  }
+  turn = 0;
+  nextClue();
+  busy = false;
+  save();
+  render();
+  $("#clue").classList.add("new");
+}
+function nextClue() {
+  // sıradaki, hâlâ açılmamış hedefi olan ipucu
+  let k = clueIdx + 1;
+  while (k < B.c.length && !B.c[k].t.some(t => !opened.includes(t))) k++;
+  if (k >= B.c.length) {
+    // bütün ipuçları tükendiyse kalan mavi kartlardan biri için ilk uygun ipucunu tekrar ver
+    k = B.c.findIndex(c => c.t.some(t => !opened.includes(t)));
+  }
+  clueIdx = k;
+  const c = B.c[k];
+  guessesLeft = (c ? c.t.filter(t => !opened.includes(t)).length : 1) + 1;
+  log.push({ t: "c", i: k });
+}
+function winner() { // takım modu: kazanan takım
+  const last = log.filter(e => e.t === "p").at(-1);
+  if (result === "assassin") return 1 - last.team;
+  return left(0) === 0 ? 0 : 1;
+}
+function finish(res) {
+  over = true; result = res === "assassin" ? "assassin" : res;
+  busy = false;
+  save();
+  render();
+  if (mode === "daily") {
+    stats.played++;
+    if (res === "win") {
+      stats.wins++;
+      stats.turns += turnCount();
+      stats.streak = stats.lastWin === day - 1 ? stats.streak + 1 : 1;
+      stats.best = Math.max(stats.best, stats.streak);
+      stats.lastWin = day;
+    } else stats.streak = 0;
+    store.set("kodadi-stats", stats);
+  }
+  if (solo()) toast(res === "win" ? `Bütün ajanları ${turnCount()} turda buldunuz!` : roles[opened.at(-1)] === 3 ? "Suikastçıyı buldunuz… Görev başarısız" : "Rakip takım daha hızlıydı", 2200);
+  else toast(`${NAMES[winner()]} takım kazandı!`, 2200);
+  setTimeout(() => { if (!isOpen()) open("stats"); }, 1600);
+}
+
+function start(m, fresh = false) {
+  mode = m;
+  let s;
+  if (m === "daily") {
+    day = dayIndex();
+    pid = dailyPid(day);
+    s = store.get("kodadi-daily", null);
+    if (!s || s.day !== day || s.pid !== pid) s = null;
+  } else {
+    const key = m === "team" ? "kodadi-team" : "kodadi-practice";
+    s = fresh ? null : store.get(key, null);
+    if (s && (!BOARDS[s.pid] || !puzzleOk(s.pid))) s = null;
+    pid = s ? s.pid : F.rastgele(BOARDS.length, puzzleOk, pid, dailyPid(dayIndex()));
+  }
+  B = BOARDS[pid];
+  roles = [...B.r].map(Number);
+  if (m === "team" && !s) {
+    // takım modunda kartların yerini karıştır ki günlük oyunla aynı dizilim olmasın
+    const order = B.w.map((_, i) => i).sort(() => Math.random() - .5);
+    B = { ...B, w: order.map(i => B.w[i]) };
+    roles = order.map(i => roles[i]);
+  } else if (m === "team" && s) { B = { ...B, w: s.words }; roles = s.roles; }
+  opened = s ? s.opened : [];
+  log = s ? s.log : [];
+  turn = s ? s.turn : 0;
+  clueIdx = s ? s.clueIdx : -1;
+  guessesLeft = s ? s.guessesLeft : 0;
+  over = !!(s && s.over);
+  result = s ? s.result : null;
+  busy = false;
+  if (!s && solo()) nextClue();
+  save();
+  build();
+  render();
+  renderSub();
+  document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+}
+function save() {
+  const st = { pid, opened, log, turn, clueIdx, guessesLeft, over, result };
+  if (mode === "daily") store.set("kodadi-daily", { day, ...st });
+  else if (mode === "team") store.set("kodadi-team", { ...st, words: B.w, roles });
+  else store.set("kodadi-practice", st);
+}
+function renderSub() {
+  const sub = $("#sub");
+  if (mode === "daily") {
+    const date = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+    sub.innerHTML = `<span>${date}</span><span class="dot"></span><span>#${day + 1}</span><span class="dot"></span><span>Yapay zekâ anlatıcı</span>`;
+  } else {
+    sub.innerHTML = `<span>${mode === "team" ? "Arkadaşlarla · aynı cihaz" : "Pratik · yapay zekâ anlatıcı"}</span><button class="chip" id="newPz">Yeni oyun</button>`;
+    $("#newPz").onclick = () => { if (!busy) start(mode, true); };
+  }
+}
+
+/* ---------- Anlatıcı haritası ---------- */
+$("#kwYes").onclick = () => {
+  const col = ["var(--blue)", "var(--red)", "var(--neutral)", "var(--black)"];
+  $("#keymapGrid").innerHTML = B.w.map((w, i) => `<span style="background:${col[roles[i]]};${roles[i] === 2 ? "color:#8a7d60;" : ""}${opened.includes(i) ? "opacity:.3;" : ""}">${up(w)}</span>`).join("");
+  open("keyMap");
+};
+
+/* ---------- İstatistik ---------- */
+function renderStats() {
+  const today = dayIndex();
+  const streak = stats.lastWin !== null && stats.lastWin >= today - 1 ? stats.streak : 0;
+  const avg = stats.wins ? (stats.turns / stats.wins).toFixed(1).replace(".", ",") : "–";
+  let box = "";
+  if (over && solo()) {
+    const clues = log.filter(e => e.t === "c").map(e => B.c[e.i]);
+    box = `<div class="result"><div class="big">${result === "win" ? `${turnCount()} turda kazandınız` : "Görev başarısız"}</div><p>${result === "win" ? "Bütün ajanlarınızı buldunuz" : roles[opened.at(-1)] === 3 ? "Suikastçıya dokundunuz" : "Rakip takım bütün ajanlarını önce buldu"}</p></div>
+      <h3>Verilen ipuçları</h3><div class="clues-list">${clues.map(c => `<div><b>${up(c.c)}</b> → ${c.t.map(i => B.w[i]).join(", ")}</div>`).join("")}</div><h3>Genel</h3>`;
+  } else if (over) {
+    box = `<div class="result"><div class="big">${NAMES[winner()]} takım kazandı</div><p>${result === "assassin" ? "Rakip takım suikastçıya dokundu" : "Bütün ajanlar bulundu"}</p></div><h3>Günlük oyun istatistikleri</h3>`;
+  }
+  $("#resultBox").innerHTML = box;
+  $("#statNums").innerHTML = [[stats.played, "Oynanan"], [stats.played ? Math.round(stats.wins / stats.played * 100) : 0, "Kazanma %"], [avg, "Ort. Tur"], [streak, "Seri"]]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+  const foot = $("#foot");
+  if (!over) { foot.innerHTML = ""; return; }
+  if (mode === "daily") {
+    foot.innerHTML = `<div><small>Sonraki oyun</small><div class="clock" id="clock"></div></div><button class="btn" id="shareBtn">${ICON_SHARE}Paylaş</button>`;
+    $("#shareBtn").onclick = share;
+    tick();
+  } else {
+    foot.innerHTML = `<div></div><button class="btn" id="againBtn2">Yeni oyun</button>`;
+    $("#againBtn2").onclick = () => { closeAll(); setTimeout(() => start(mode, true), 250); };
+  }
+}
+function tick() {
+  const el = $("#clock");
+  if (el) {
+    const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+    const s = Math.max(0, Math.floor((next - n) / 1000));
+    el.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":");
+  }
+  if (mode === "daily" && !busy && dayIndex() !== day) start("daily");
+}
+setInterval(tick, 1000);
+async function share() {
+  const picks = log.filter(e => e.t === "p").map(e => SQ[roles[e.i]]).join("");
+  const text = `Kod Adı #${day + 1} ${result === "win" ? `✅ ${turnCount()} turda` : "❌"}\n${picks}`;
+  if (navigator.share && matchMedia("(pointer:coarse)").matches) { try { await navigator.share({ text }); return; } catch {} }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); } catch { toast("Kopyalanamadı"); }
+}
+
+/* ---------- Toasts & overlays ---------- */
+function toast(msg, ms = 1400) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+const scrim = $("#scrim"), drawer = $("#drawer");
+function isOpen() { return scrim.classList.contains("open"); }
+function closeAll() {
+  scrim.classList.remove("open"); drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  document.activeElement && document.activeElement.blur();
+}
+function open(id) {
+  const wasDrawer = drawer.classList.contains("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  if (id === "stats") renderStats();
+  scrim.classList.add("open");
+  setTimeout(() => $("#" + id).classList.add("open"), wasDrawer ? 180 : 0);
+}
+$("#menuBtn").onclick = () => { scrim.classList.add("open"); drawer.classList.add("open"); };
+scrim.onclick = closeAll;
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeAll(); }));
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"), c = e.target.closest("[data-close]"), md = e.target.closest("[data-mode]");
+  if (o) open(o.dataset.open);
+  else if (c) closeAll();
+  else if (md) { closeAll(); if (md.dataset.mode !== mode && !busy) setTimeout(() => start(md.dataset.mode), 200); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeAll(); });
+
+/* ---------- Boot ---------- */
+start("daily");
+if (!store.get("kodadi-seen", false)) { store.set("kodadi-seen", true); setTimeout(() => open("help"), 400); }
+</script>
+</body>
+</html>

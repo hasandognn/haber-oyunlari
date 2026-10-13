@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Vezir — Günlük Mantık Bulmacası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff; --ink:#1d1d1f; --muted:#8a8a8f; --line:#e7e7e4; --line-strong:#bdbdb8;
+  --key:#efefec; --soft:#f7f7f5; --bad:#d9654b;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --bs:min(440px, calc(100vw - 32px), calc(100dvh - 300px));
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+.app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+
+header{flex:none;border-bottom:1px solid var(--line)}
+.bar{max-width:600px;margin:0 auto;height:60px;padding:0 10px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.bar .right{display:flex;justify-content:flex-end;gap:2px}
+.title{font-weight:700;font-size:22px;letter-spacing:-.02em;margin:0;line-height:1}
+.ib{width:40px;height:40px;border:0;background:transparent;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:background-color .25s var(--ease),transform .15s var(--ease)}
+.ib:hover{background:var(--soft)}
+.ib:active{transform:scale(.92)}
+.ib svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:14px 16px calc(22px + env(safe-area-inset-bottom))}
+.sub{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);min-height:26px;flex-wrap:wrap;justify-content:center}
+.sub .dot{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background-color .25s var(--ease),border-color .25s}
+.chip:hover{background:var(--soft);border-color:var(--line-strong)}
+.status{display:flex;align-items:center;gap:14px;font-size:14px;color:#3a3a3d}
+.clock{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--ink)}
+.count{font-variant-numeric:tabular-nums}
+.count b{color:var(--ink)}
+
+.board{width:var(--bs);height:var(--bs);display:grid;border:2.5px solid var(--ink);border-radius:8px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;background:var(--ink);gap:1px}
+.cell{position:relative;display:grid;place-items:center;cursor:pointer;transition:filter .15s}
+.cell:hover{filter:brightness(.97)}
+.cell.bt{box-shadow:inset 0 2.5px 0 var(--ink)}
+.cell.bl{box-shadow:inset 2.5px 0 0 var(--ink)}
+.cell.bt.bl{box-shadow:inset 0 2.5px 0 var(--ink),inset 2.5px 0 0 var(--ink)}
+.cell .x{width:28%;height:28%;opacity:.5;display:grid}
+.cell .x svg{width:100%;height:100%;stroke:var(--ink);stroke-width:3;stroke-linecap:round;fill:none}
+.cell .q{width:70%;height:70%;display:grid;place-items:center;animation:qin .3s var(--ease)}
+.cell .q svg{width:100%;height:100%;fill:var(--ink)}
+.cell.bad::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(217,101,75,.42) 0 4px,transparent 4px 9px);pointer-events:none}
+.cell.bad .q svg{fill:var(--bad)}
+.cell.hint{animation:hint 1.2s var(--ease) 2}
+.board.won .cell .q{animation:win .7s var(--ease) both;animation-delay:calc(var(--d) * 50ms)}
+@keyframes qin{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+@keyframes win{40%{transform:scale(1.25) translateY(-8%)}100%{transform:none}}
+@keyframes hint{50%{filter:brightness(.82)}}
+
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:12px 20px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:transform .15s var(--ease),opacity .2s}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+
+#toasts{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:60;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-weight:600;font-size:14px;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);animation:tin .35s var(--ease);transition:opacity .35s var(--ease),transform .35s var(--ease);white-space:nowrap}
+.toast.out{opacity:0;transform:translateY(-6px) scale(.97)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:none}}
+
+.scrim{position:fixed;inset:0;background:rgba(250,250,248,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease);z-index:40}
+.scrim.open{opacity:1;pointer-events:auto}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:20px;z-index:50;pointer-events:none}
+.card{width:100%;max-width:410px;max-height:calc(100dvh - 40px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(20,20,20,.12),0 2px 8px rgba(20,20,20,.04);padding:26px 26px 24px;position:relative;opacity:0;transform:translateY(14px) scale(.975);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+.modal.open{pointer-events:auto}
+.modal.open .card{opacity:1;transform:none}
+.card h2{font-weight:700;font-size:21px;margin:0 0 14px;letter-spacing:-.015em}
+.card h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 12px}
+.card p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#3a3a3d}
+.card ul{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.6;color:#3a3a3d}
+.close{position:absolute;top:14px;right:14px}
+.hr{height:1px;background:var(--line);margin:18px 0}
+.note{font-size:13px!important;color:var(--muted)!important}
+.demo{display:grid;grid-template-columns:repeat(4,34px);gap:1px;background:var(--ink);border:2px solid var(--ink);border-radius:6px;overflow:hidden;width:max-content;margin:10px 0}
+.demo i{width:34px;height:34px;display:grid;place-items:center}
+.demo svg{width:20px;height:20px;fill:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats b{display:block;font-size:26px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stats span{font-size:11.5px;color:var(--muted);line-height:1.25;display:block;margin-top:2px}
+.result{text-align:center}
+.result .big{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.result p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.foot{display:flex;align-items:center;gap:16px;margin-top:22px}
+.foot>div{flex:1}
+.foot small{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.nclock{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.set{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.set:last-of-type{border-bottom:0}
+.set b{display:block;font-weight:600;font-size:15px}
+.set span{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+.sw{flex:none;width:46px;height:28px;border-radius:99px;border:0;background:#dcdcd8;position:relative;cursor:pointer;transition:background-color .3s var(--ease)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.18);transition:transform .35s var(--ease)}
+.sw[aria-checked=true]{background:#6aa780}
+.sw[aria-checked=true]::after{transform:translateX(18px)}
+
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);background:#fff;z-index:50;border-right:1px solid var(--line);transform:translateX(-104%);transition:transform .55s var(--ease);display:flex;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom))}
+.drawer.open{transform:none;box-shadow:20px 0 60px rgba(20,20,20,.08)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:0 6px 18px}
+.dh .brand{font-weight:700;font-size:20px;letter-spacing:-.015em}
+.dh small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:3px;letter-spacing:0}
+.item{width:100%;border:0;background:transparent;display:flex;align-items:center;gap:14px;padding:13px 12px;border-radius:12px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;text-decoration:none;color:inherit;opacity:0;transform:translateX(-10px);transition:opacity .45s var(--ease),transform .55s var(--ease),background-color .25s var(--ease)}
+.drawer.open .item{opacity:1;transform:none;transition-delay:calc(var(--i) * 45ms + 120ms),calc(var(--i) * 45ms + 120ms),0s}
+.item:hover{background:var(--soft)}
+.item.on{background:var(--soft);font-weight:600}
+.item svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.item.on svg{color:var(--ink)}
+.sep{height:1px;background:var(--line);margin:10px 8px}
+.dfoot{margin-top:auto;padding:0 12px;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="bar">
+      <div><button class="ib" id="menuBtn" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button></div>
+      <h1 class="title">Vezir</h1>
+      <div class="right">
+        <button class="ib" data-open="help" aria-label="Nasıl oynanır"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg></button>
+        <button class="ib" data-open="stats" aria-label="İstatistikler"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg></button>
+        <button class="ib" data-open="settings" aria-label="Ayarlar"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="status"><span class="clock" id="clock">0:00</span><span class="count" id="count"></span></div>
+    <div class="board" id="board" aria-label="Oyun tahtası"></div>
+    <div class="actions">
+      <button class="btn ghost" id="undoBtn"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Geri al</button>
+      <button class="btn ghost" id="hintBtn">İpucu</button>
+      <button class="btn ghost" id="clearBtn">Temizle</button>
+    </div>
+  </main>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
+
+<nav class="drawer" id="drawer" aria-label="Menü">
+  <div class="dh">
+    <div class="brand">Vezir<small>Haber Oyunları</small></div>
+    <button class="ib" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <button class="item" style="--i:0" data-mode="daily"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Günün Bulmacası</button>
+  <button class="item" style="--i:1" data-mode="practice"><svg viewBox="0 0 24 24"><path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3M18 4l2 3-2 3M18 14l2 3-2 3"/></svg>Pratik Modu</button>
+  <div class="sep"></div>
+  <button class="item" style="--i:2" data-open="help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6"/><path d="M12 17.2h.01"/></svg>Nasıl Oynanır</button>
+  <button class="item" style="--i:3" data-open="stats"><svg viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>İstatistikler</button>
+  <div class="sep"></div>
+  <a class="item" style="--i:4" href="index.html"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Tüm Oyunlar</a>
+  <div class="dfoot">Her gün yeni bir bulmaca.</div>
+</nav>
+
+<div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="helpT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="helpT">Nasıl Oynanır</h2>
+    <p>Her <b>satıra</b>, her <b>sütuna</b> ve her <b>renkli bölgeye</b> tam bir vezir yerleştirin.</p>
+    <ul>
+      <li>İki vezir birbirine değemez — çapraz komşu bile olamaz.</li>
+      <li>Bir kez dokunmak <b>×</b> koyar (not almak için), iki kez dokunmak <b>vezir</b> koyar.</li>
+      <li>Parmağınızı sürükleyerek birden çok kareye × koyabilirsiniz.</li>
+    </ul>
+    <div class="demo" id="demo"></div>
+    <div class="hr"></div>
+    <p class="note">Her bulmacanın tek bir çözümü var; tahmine gerek kalmadan mantıkla bulunabilir. İpucu kullanmak süreye 15 saniye ekler.</p>
+  </div>
+</div>
+
+<div class="modal" id="stats" role="dialog" aria-modal="true" aria-labelledby="statsT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="statsT">İstatistikler</h2>
+    <div id="resultBox"></div>
+    <div class="stats" id="statNums"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<div class="modal" id="settings" role="dialog" aria-modal="true" aria-labelledby="setT">
+  <div class="card">
+    <button class="ib close" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="setT">Ayarlar</h2>
+    <div class="set"><div><b>Otomatik ×</b><span>Vezir koyunca aynı satır, sütun, bölge ve komşu karelere × koyar.</span></div><button class="sw" role="switch" id="swAuto" aria-label="Otomatik ×"></button></div>
+    <div class="set"><div><b>Çakışmaları göster</b><span>Kurala aykırı vezirleri kırmızıyla işaretler.</span></div><button class="sw" role="switch" id="swConf" aria-label="Çakışmaları göster"></button></div>
+  </div>
+</div>
+
+<script>
+/* n: boyut, r: her hücrenin bölgesi (a–i), q: her satırdaki vezirin sütunu (çözüm) */
+const PUZZLES = [{"n":7,"r":"aabbbbgaabbbbgddcbbbgdddbbbgddbbfegddfffegddggggg","q":[1,4,2,0,5,3,6]},
+{"n":8,"r":"aaaaeeeeadbbeeeeaddcceeeaddceeeeaagggeeeaagfggeehgggggehhhhhhhhh","q":[0,2,4,1,6,3,5,7]},
+{"n":9,"r":"fffbbaaaafffbbaaaadffbbbacadfffffaccddgfffacegggffffccgiggggggciiigghggciiiiiigcc","q":[6,3,7,0,8,4,2,5,1]},
+{"n":7,"r":"ccaabbbccaabbbcccabbdcccabbdcecafbdggcffffggfffff","q":[3,5,2,6,1,4,0]},
+{"n":8,"r":"bcccaaaabbbccaaabccccadaeeeedddaheeedddahffddggahhhddggahdddgggg","q":[7,2,4,6,3,1,5,0]},
+{"n":9,"r":"bbbbaaaaabbbbbbbaabbcceebdabecceeedaieeeeedddifeeeedddihheegdddihhggggddiiigggggg","q":[8,6,3,7,4,1,5,2,0]},
+{"n":7,"r":"ccccadbccccddbccccdddcfccdddffeeeddffeeeddffeggdd","q":[4,6,1,5,2,0,3]},
+{"n":8,"r":"eeeeaabbeeeecabbeeeeccbbeeeeddddeeffdffdgffffffdghhffffdghhhfffd","q":[5,7,4,6,1,3,0,2]},
+{"n":9,"r":"ddbaaaaaadbbbaaaaadddbeeceadfffeeeeadffffeeeadgfffffeadgfffeeeeiiihheeeeiiihheeee","q":[8,3,6,0,7,5,1,4,2]},
+{"n":7,"r":"ebbbccaebbbcccebdbccceedddddgeeffddgeggfffggggfff","q":[6,2,5,3,1,4,0]},
+{"n":8,"r":"ccccaaaageeccccbgegccddbgeggggddgeeghfhhgggghfhhgggghffhgghhhhhh","q":[4,7,3,6,1,5,0,2]},
+{"n":9,"r":"cccccbaaacccccbbaacccccbbaaffcccbedaffceeeedafffeeeeaagifffeeeaiifhfeeaaiihhfeeea","q":[8,6,4,7,5,2,0,3,1]},
+{"n":7,"r":"ccaabbdccdbbddccdddddcccdddgccccdegfcccgggfccccgg","q":[2,4,1,3,5,0,6]},
+{"n":8,"r":"aaabffggcbbbfgggcbbfffggcccfffdgeeefffggeeeffffghhhhhffghhhhhggg","q":[1,3,0,6,2,5,7,4]},
+{"n":9,"r":"aaaabbbbdaacbbfdddaacbffdddeeehffffdehhhfggfdhhhhgggffhhhhhgggfhhhhhgiiihhhhiiiii","q":[1,4,2,8,0,7,5,3,6]},
+{"n":7,"r":"aaaabbbaaaabbbaaacbbbaeeccbdaecccbbaccffffgcfffff","q":[2,5,3,6,1,4,0]},
+{"n":8,"r":"aaaaaaaacabbbadacaabddddcabbddddccbbddedccfbdeedccfbbhhgccfbbhhh","q":[1,3,0,4,6,2,7,5]},
+{"n":9,"r":"accbbbbggcccbbbgggccccbdgggceecddgggceeeddfggceeeedfggiehhhggggiiiihiiiiiiiiiiiii","q":[0,3,1,5,2,6,8,4,7]},
+{"n":7,"r":"bbbbbaabddccaadddeccadddeecfdggeeefdgggggfdgggggg","q":[5,0,4,1,3,6,2]},
+{"n":8,"r":"aaaaaaaaaccbaaddacdddddeaaaddeeegggddeeegggfffeeggghhhhhgggggghh","q":[0,3,1,4,7,5,2,6]},
+{"n":9,"r":"aaaaccbbbaccccbbbbaccccdbbbacddddebbaadddeeebaaffdegbbffffdgggbffffhhgggffhhhhigg","q":[0,8,1,3,5,2,7,4,6]},
+{"n":7,"r":"cccaaaacccaaabdcccaabdcecaaaggeffffggeffffgggffff","q":[4,6,3,0,2,5,1]},
+{"n":8,"r":"fffaaaaaffaaaaabfeeeccddfeegccddffeggcchfeegghhhfhegghhhhhhhhhhh","q":[5,7,4,6,2,0,3,1]},
+{"n":9,"r":"daabbbbbbdaabbggggdacebbfggdddebffggdeeeeffggeehheffggeehhhffgghhhhhhfgghhhhhiiii","q":[1,4,2,0,3,6,8,5,7]},
+{"n":7,"r":"aaacccebbffceedbfcceeddffeeeffffeeefffffgeffffgge","q":[2,0,4,1,6,3,5]},
+{"n":8,"r":"caaaaaaaccccbbaacccccdaaecedddddeeedddddfeeeedddhheggdddhhhhgddd","q":[7,5,3,6,2,0,4,1]},
+{"n":9,"r":"bbbbbbcaabbbbbbcaabbbbbdccabbffddecabiifddeccbiiffggggiihffggggiihhgggggiiiiiiiig","q":[8,1,7,4,6,3,5,2,0]},
+{"n":7,"r":"baaaaddbbaaaadaaaceddaaaceddffaeeddffggegdfffgggd","q":[2,0,3,6,4,1,5]},
+{"n":8,"r":"bbaaaaaabbacaaaabbbcaaaabbbcceddbbfceeeefffggeeefffhghhhfffhhhhh","q":[2,0,3,7,5,1,4,6]},
+{"n":9,"r":"bbbaaaaaabbbaaaaaaddaaccaaaddaaacccaddeeacccgddeeaffggdddeehhggddeeehigidddeeeiii","q":[3,1,4,0,2,6,8,5,7]},
+{"n":7,"r":"cacbbbbcccbbbbcccbbbbcdcddddcddddedcdffggdcdffgdd","q":[1,6,0,3,5,2,4]},
+{"n":8,"r":"aabbbdddaabbbdddaccccdddaaaaddddaaaaedddaaggeffdaaggehhdaaghhhdd","q":[0,3,1,7,4,6,2,5]},
+{"n":9,"r":"aaaabbbbbaaaabbbbbdccdbbbbbdcdddbbbbddddffbgedddffbbghffffgggghffffggihhfffiiiiii","q":[1,6,2,0,8,3,5,7,4]},
+{"n":7,"r":"bbbaaaabbbcadabbbcdddbbbbbddbeggdddbeggdfdbgggdff","q":[4,0,3,6,1,5,2]},
+{"n":8,"r":"ffecaaaaffeccabbffeccabbffeccadbfeechaaaffgghhaahhgghhaahhhhhhhh","q":[5,7,4,6,2,0,3,1]},
+{"n":9,"r":"aaaaahhccabaaahhccfbdaahhccffddehhhcffeeeehhhffffeghhhfiiiigihhiiiiiiiihiiiiiiiih","q":[3,1,7,2,4,0,5,8,6]},
+{"n":7,"r":"aaaeebbaaaeebbcddeebbgddeeeeggggeffggggfffggggggf","q":[1,5,0,2,4,6,3]},
+{"n":8,"r":"eeeebbaaeeeebbaaeeebbbaceeefdddceeefffddgghfffffgghhffffhhhhhhhf","q":[6,4,7,5,1,3,0,2]},
+{"n":9,"r":"bdddaaaaabddddaaaabdddddcccdddddddcceeedfddccheegffdcchegggfffchhggiffffhhggiifff","q":[7,0,8,6,2,5,3,1,4]},
+{"n":7,"r":"aaaabbbaaaabbbacadbbbecedbbbeeeddbbeegdddfeeggggg","q":[2,5,1,3,0,6,4]},
+{"n":8,"r":"bbbaeeeebbdddeeebddddfceddddffeeddddffeegdhhffffgdhhhfffgghhhfff","q":[3,1,6,2,7,5,0,4]},
+{"n":9,"r":"baaaaaaaabbbaaaaaabbcaaafiihccadffiehhhhfffiehhhhffiiihhhhffigghhhhfiiighhhhiiiig","q":[3,0,2,4,8,5,7,1,6]},
+{"n":7,"r":"faceebbfaccebbffceedgfffeedgfffeeegfffegggffggggg","q":[1,6,2,5,3,0,4]},
+{"n":8,"r":"ccbbaaaacccbccaacccbccaahcccccadheeffcaaheegfcaahhggfcaahhhhhaaa","q":[6,3,5,7,1,4,2,0]},
+{"n":9,"r":"aadddbbbfaadddbiifcadddbiffddddeiiifggeeeiiffgggggiiifhhhhgggifhhhhhiiiihhhhiiiii","q":[1,5,0,2,4,8,6,3,7]},
+{"n":7,"r":"aaadcccadbdcccadddcccddddfccdddffegdddffggddfffgg","q":[0,2,4,1,5,3,6]},
+{"n":8,"r":"aaaaaaaaabbaaaaabbbcccaabddcccccbddccccedddhhffeddgghhhhdddghhhh","q":[0,2,4,1,7,5,3,6]},
+{"n":9,"r":"abbbddgggccbbbdddghcbeddddghheeddgggheeedggffhhhhdggffhhhidgggihhhiiiiiihhhiiiiii","q":[0,4,1,5,3,8,6,2,7]},
+{"n":7,"r":"ccaaabbgcaaabfgccadbfgddddbfgeddbbfgggffffggggfff","q":[3,5,2,4,1,6,0]},
+{"n":8,"r":"accbbbbbccccbdbbcccccddbcccccddbhceccddbheegcfdbhhggcddbhhhccddd","q":[0,7,4,6,2,5,3,1]},
+{"n":9,"r":"aaaacccggbacccggggbbcccgeeeddciggeeediiigeeeeiiiigeeefiiiighhhhiiiighhhhiiiiiiihh","q":[2,0,3,1,6,8,4,7,5]},
+{"n":7,"r":"aaacccbaaccccbacccdbbaccdddbccfdgeeccfdgeeddddgee","q":[0,6,1,3,5,2,4]},
+{"n":8,"r":"aaaaaaacaabbadacbbbbddccbeebddccbeebddccgddddfccgggdffcchgggfffc","q":[6,3,7,4,1,5,2,0]},
+{"n":9,"r":"hhhccbbdafhhccbbddfhhhcccddfhhccccddfhheeedddffhheddddffhhegggghhhheggggihhhegggg","q":[8,6,4,7,3,1,5,2,0]},
+{"n":7,"r":"aabbdddaaabdddacabdddaeeedddeeeeeedeeffgggegggggg","q":[0,3,1,6,4,2,5]},
+{"n":8,"r":"aaabbbbbaaaaaabbcaaabbbbccbbbddbcggeefddccgeefddccgghhddgggghhdd","q":[1,7,0,6,3,5,2,4]},
+{"n":9,"r":"bbaccccccbbcccccccbbbccccccbbbcdddccffbbddddefffbbdddifffbbgggifbbbhgggifbbhhggii","q":[2,0,3,5,8,1,6,4,7]},
+{"n":7,"r":"aaaaaaacddaabbcdddaaaceddaaaeegdaffgegdfffgggffff","q":[4,6,0,3,1,5,2]},
+{"n":8,"r":"cabbbbbbcadbdbbbccddddbeccddddeeccdddeeecceeeeffcceggfffggggffhh","q":[1,3,0,2,5,7,4,6]},
+{"n":9,"r":"bbbbbbaacbbbbbbaccbbbbbbbccbbbbdddcceebbdffcceeebdffcceeehgfffciihhgffcciiiiiiffc","q":[7,3,8,5,1,6,4,2,0]}];
+
+const EPOCH = new Date(2026, 0, 1);
+const COLORS = ["#f6d7a7", "#c9e4c5", "#bcd4f6", "#e8c6ef", "#f6c1c1", "#fbe7a1", "#c6ece9", "#ddd5c4", "#f3d0e3"];
+const QUEEN = '<svg viewBox="0 0 24 24"><path d="M3 8l3.5 9h11L21 8l-5 4-4-7-4 7z"/><rect x="6" y="18.5" width="12" height="2.5" rx="1"/></svg>';
+const CROSS = '<svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>';
+const ICON_SHARE = '<svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+const HINT_PENALTY = 15;
+
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+let settings = store.get("vezir-settings", { auto: false, conf: true });
+let stats = store.get("vezir-stats", { played: 0, total: 0, best: null, streak: 0, bestStreak: 0, lastDay: null });
+let mode, day, pid, P, N, reg, marks, history, elapsed, hints, won, startedAt = null;
+// marks: 0 boş, 1 ×, 2 vezir
+
+function dayIndex() {
+  const n = new Date();
+  return Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5);
+}
+const dailyPid = d => ((d * 7 + 1) % PUZZLES.length + PUZZLES.length) % PUZZLES.length;
+const regionOf = i => reg.charCodeAt(i) - 97;
+
+/* ---------- Tahta ---------- */
+const board = $("#board");
+let cells = [];
+function build() {
+  board.style.gridTemplateColumns = board.style.gridTemplateRows = `repeat(${N},1fr)`;
+  board.classList.remove("won");
+  board.innerHTML = "";
+  cells = [];
+  for (let i = 0; i < N * N; i++) {
+    const r = Math.floor(i / N), c = i % N;
+    const el = document.createElement("div");
+    el.className = "cell";
+    el.style.background = COLORS[regionOf(i)];
+    if (r && regionOf(i - N) !== regionOf(i)) el.classList.add("bt");
+    if (c && regionOf(i - 1) !== regionOf(i)) el.classList.add("bl");
+    el.dataset.i = i;
+    board.appendChild(el);
+    cells.push(el);
+  }
+}
+function conflicts() {
+  const qs = marks.map((m, i) => m === 2 ? i : -1).filter(i => i >= 0);
+  const bad = new Set();
+  for (let a = 0; a < qs.length; a++) for (let b = a + 1; b < qs.length; b++) {
+    const i = qs[a], j = qs[b], ri = Math.floor(i / N), ci = i % N, rj = Math.floor(j / N), cj = j % N;
+    if (ri === rj || ci === cj || regionOf(i) === regionOf(j) || (Math.abs(ri - rj) < 2 && Math.abs(ci - cj) < 2)) { bad.add(i); bad.add(j); }
+  }
+  return bad;
+}
+function render() {
+  const bad = settings.conf ? conflicts() : new Set();
+  let qn = 0;
+  cells.forEach((el, i) => {
+    const m = marks[i];
+    if (m === 2) qn++;
+    const want = m === 2 ? "q" : m === 1 ? "x" : "";
+    const cur = el.firstElementChild ? el.firstElementChild.className : "";
+    if (cur !== want) el.innerHTML = want ? `<i class="${want}">${m === 2 ? QUEEN : CROSS}</i>` : "";
+    el.classList.toggle("bad", bad.has(i));
+    el.style.setProperty("--d", Math.floor(i / N) + (i % N));
+  });
+  $("#count").innerHTML = `<b>${qn}</b>/${N} vezir`;
+  $("#undoBtn").disabled = !history.length || won;
+  $("#hintBtn").disabled = $("#clearBtn").disabled = won;
+}
+
+/* ---------- Etkileşim ---------- */
+let drag = null;
+function cellAt(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest(".cell"); return c && board.contains(c) ? +c.dataset.i : -1; }
+function snapshot() { history.push(marks.slice()); if (history.length > 200) history.shift(); }
+function setMark(i, m) {
+  marks[i] = m;
+  if (m === 2 && settings.auto) {
+    const r = Math.floor(i / N), c = i % N;
+    for (let j = 0; j < N * N; j++) {
+      if (j === i || marks[j]) continue;
+      const rj = Math.floor(j / N), cj = j % N;
+      if (rj === r || cj === c || regionOf(j) === regionOf(i) || (Math.abs(rj - r) < 2 && Math.abs(cj - c) < 2)) marks[j] = 1;
+    }
+  }
+}
+board.addEventListener("pointerdown", e => {
+  if (won || isOpen()) return;
+  const i = cellAt(e.clientX, e.clientY);
+  if (i < 0) return;
+  e.preventDefault();
+  board.setPointerCapture(e.pointerId);
+  tickStart();
+  drag = { start: i, moved: false, last: i };
+});
+board.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const i = cellAt(e.clientX, e.clientY);
+  if (i < 0 || i === drag.last) return;
+  if (!drag.moved) { snapshot(); drag.moved = true; if (!marks[drag.start]) marks[drag.start] = 1; }
+  if (!marks[i]) marks[i] = 1;
+  drag.last = i;
+  render();
+});
+function endDrag() {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (!d.moved) {
+    snapshot();
+    setMark(d.start, (marks[d.start] + 1) % 3);
+  }
+  render(); save(); check();
+}
+board.addEventListener("pointerup", endDrag);
+board.addEventListener("pointercancel", endDrag);
+$("#undoBtn").onclick = () => { if (!history.length || won) return; marks = history.pop(); render(); save(); };
+$("#clearBtn").onclick = () => { if (won || !marks.some(Boolean)) return; snapshot(); marks = marks.map(() => 0); render(); save(); };
+$("#hintBtn").onclick = () => {
+  if (won) return;
+  tickStart();
+  // önce yanlış veziri işaretle, yoksa eksik bir doğru veziri koy
+  const wrong = marks.findIndex((m, i) => m === 2 && P.q[Math.floor(i / N)] !== i % N);
+  snapshot();
+  hints++;
+  elapsed += HINT_PENALTY;
+  if (wrong >= 0) { marks[wrong] = 0; cells[wrong].classList.add("hint"); toast("Bu vezir yanlış yerde"); }
+  else {
+    const r = P.q.findIndex((c, r) => marks[r * N + c] !== 2);
+    const i = r * N + P.q[r];
+    setMark(i, 2); cells[i].classList.add("hint");
+    toast(`İpucu: +${HINT_PENALTY} saniye`);
+  }
+  setTimeout(() => cells.forEach(c => c.classList.remove("hint")), 2500);
+  render(); save(); check();
+};
+
+/* ---------- Süre ---------- */
+function now() { return elapsed + (startedAt ? (Date.now() - startedAt) / 1000 : 0); }
+function tickStart() { if (!won && !startedAt) startedAt = Date.now(); }
+function tickStop() { if (startedAt) { elapsed += (Date.now() - startedAt) / 1000; startedAt = null; } }
+setInterval(() => {
+  $("#clock").textContent = fmt(now());
+  const el = $("#nclock");
+  if (el) { const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1); const s = Math.max(0, Math.floor((next - n) / 1000)); el.textContent = [s / 3600, s / 60 % 60, s % 60].map(v => String(Math.floor(v)).padStart(2, "0")).join(":"); }
+  if (mode === "daily" && !drag && dayIndex() !== day) start("daily");
+}, 250);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { tickStop(); save(); } });
+addEventListener("pagehide", () => { tickStop(); save(); });
+
+/* ---------- Oyun ---------- */
+function check() {
+  if (won) return;
+  const qs = marks.filter(m => m === 2).length;
+  if (qs !== N || conflicts().size) return;
+  // tek çözüm olduğu için kurala uyan her dizilim çözümdür
+  tickStop();
+  won = true;
+  save();
+  board.classList.add("won");
+  render();
+  if (mode === "daily") {
+    stats.played++;
+    stats.total += Math.round(elapsed);
+    stats.best = stats.best === null ? Math.round(elapsed) : Math.min(stats.best, Math.round(elapsed));
+    stats.streak = stats.lastDay === day - 1 ? stats.streak + 1 : 1;
+    stats.bestStreak = Math.max(stats.bestStreak, stats.streak);
+    stats.lastDay = day;
+    store.set("vezir-stats", stats);
+  }
+  toast(`Çözdünüz! ${fmt(elapsed)}`, 1900);
+  setTimeout(() => { if (!isOpen()) open("stats"); }, 1300);
+}
+function start(m, fresh = false) {
+  tickStop();
+  mode = m;
+  let s;
+  if (m === "daily") {
+    day = dayIndex();
+    pid = dailyPid(day);
+    s = store.get("vezir-daily", null);
+    if (!s || s.day !== day || s.pid !== pid) s = null;
+  } else {
+    s = fresh ? null : store.get("vezir-practice", null);
+    if (s && !PUZZLES[s.pid]) s = null;
+    if (s) pid = s.pid;
+    else {
+      let p;
+      do p = Math.floor(Math.random() * PUZZLES.length); while (p === pid || p === dailyPid(dayIndex()));
+      pid = p;
+    }
+  }
+  P = PUZZLES[pid]; N = P.n; reg = P.r;
+  marks = s ? s.marks : Array(N * N).fill(0);
+  elapsed = s ? s.elapsed : 0;
+  hints = s ? s.hints : 0;
+  won = !!(s && s.won);
+  history = [];
+  startedAt = null;
+  save();
+  build();
+  render();
+  if (won) board.classList.add("won");
+  renderSub();
+  document.querySelectorAll(".item[data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+}
+function save() {
+  const st = { pid, marks, elapsed: now(), hints, won };
+  if (mode === "daily") store.set("vezir-daily", { day, ...st });
+  else store.set("vezir-practice", st);
+}
+function renderSub() {
+  const sub = $("#sub");
+  const size = `${N}×${N}`;
+  if (mode === "daily") {
+    const date = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+    sub.innerHTML = `<span>${date}</span><span class="dot"></span><span>#${day + 1}</span><span class="dot"></span><span>${size}</span>`;
+  } else {
+    sub.innerHTML = `<span>Pratik modu · ${size}</span><button class="chip" id="newPz">Yeni bulmaca</button>`;
+    $("#newPz").onclick = () => start("practice", true);
+  }
+}
+
+/* ---------- İstatistik ---------- */
+function renderStats() {
+  const today = dayIndex();
+  const streak = stats.lastDay !== null && stats.lastDay >= today - 1 ? stats.streak : 0;
+  const avg = stats.played ? fmt(stats.total / stats.played) : "–";
+  $("#resultBox").innerHTML = won ? `<div class="result"><div class="big">${fmt(elapsed)}</div><p>${N}×${N} bulmacayı çözdünüz${hints ? ` · ${hints} ipucu` : ""}</p></div><h3>Genel</h3>` : "";
+  $("#statNums").innerHTML = [[stats.played, "Çözülen"], [stats.best === null ? "–" : fmt(stats.best), "En İyi"], [avg, "Ortalama"], [streak, "Seri"]]
+    .map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join("");
+  const foot = $("#foot");
+  if (!won) { foot.innerHTML = ""; return; }
+  if (mode === "daily") {
+    foot.innerHTML = `<div><small>Sonraki bulmaca</small><div class="nclock" id="nclock"></div></div><button class="btn" id="shareBtn">${ICON_SHARE}Paylaş</button>`;
+    $("#shareBtn").onclick = share;
+  } else {
+    foot.innerHTML = `<div></div><button class="btn" id="againBtn">Yeni bulmaca</button>`;
+    $("#againBtn").onclick = () => { closeAll(); setTimeout(() => start("practice", true), 250); };
+  }
+}
+async function share() {
+  const text = `Vezir #${day + 1} 👑 ${fmt(elapsed)}${hints ? ` (${hints} ipucu)` : " · ipuçsuz"}\n${N}×${N}`;
+  if (navigator.share && matchMedia("(pointer:coarse)").matches) { try { await navigator.share({ text }); return; } catch {} }
+  try { await navigator.clipboard.writeText(text); toast("Panoya kopyalandı"); } catch { toast("Kopyalanamadı"); }
+}
+
+/* ---------- Ayarlar ---------- */
+function renderSettings() { $("#swAuto").setAttribute("aria-checked", settings.auto); $("#swConf").setAttribute("aria-checked", settings.conf); }
+$("#swAuto").onclick = () => { settings.auto = !settings.auto; store.set("vezir-settings", settings); renderSettings(); };
+$("#swConf").onclick = () => { settings.conf = !settings.conf; store.set("vezir-settings", settings); renderSettings(); render(); };
+
+/* ---------- Toasts & overlays ---------- */
+function toast(msg, ms = 1400) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  $("#toasts").prepend(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 400); }, ms);
+}
+const scrim = $("#scrim"), drawer = $("#drawer");
+function isOpen() { return scrim.classList.contains("open"); }
+function closeAll() {
+  scrim.classList.remove("open"); drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  document.activeElement && document.activeElement.blur();
+}
+function open(id) {
+  const wasDrawer = drawer.classList.contains("open");
+  drawer.classList.remove("open");
+  document.querySelectorAll(".modal.open").forEach(m => m.classList.remove("open"));
+  if (id === "stats") renderStats();
+  if (id === "settings") renderSettings();
+  scrim.classList.add("open");
+  setTimeout(() => $("#" + id).classList.add("open"), wasDrawer ? 180 : 0);
+}
+$("#menuBtn").onclick = () => { scrim.classList.add("open"); drawer.classList.add("open"); };
+scrim.onclick = closeAll;
+document.querySelectorAll(".modal").forEach(m => m.addEventListener("click", e => { if (e.target === m) closeAll(); }));
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-open]"), c = e.target.closest("[data-close]"), md = e.target.closest("[data-mode]");
+  if (o) open(o.dataset.open);
+  else if (c) closeAll();
+  else if (md) { closeAll(); if (md.dataset.mode !== mode) setTimeout(() => start(md.dataset.mode), 200); }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") return closeAll();
+  if ((e.metaKey || e.ctrlKey) && e.key === "z") { e.preventDefault(); $("#undoBtn").click(); }
+});
+$("#demo").innerHTML = [0, 0, 1, 1, 0, 2, 1, 3, 2, 2, 3, 3, 2, 2, 3, 3].map((g, i) => `<i style="background:${COLORS[g]}">${i === 1 || i === 7 ? QUEEN : ""}</i>`).join("");
+
+/* ---------- Boot ---------- */
+start("daily");
+if (!store.get("vezir-seen", false)) { store.set("vezir-seen", true); setTimeout(() => open("help"), 400); }
+</script>
+</body>
+</html>
