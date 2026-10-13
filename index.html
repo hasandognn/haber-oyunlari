@@ -85,6 +85,14 @@ a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);tran
 .mini4 i.a{background:#9da1a6;border-color:#9da1a6;color:#fff}
 .dots4{display:flex;gap:6px}
 .dots4 i{width:22px;height:22px;border-radius:50%}
+.geo-sil{width:84px;height:84px}
+.geo-flag{position:relative;width:96px;height:72px;border-radius:6px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.geo-flag img{width:100%;height:100%;object-fit:cover}
+.geo-flag div{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
+.geo-flag i{background:#e6e3dc;border:1.5px solid #fff}
+.geo-flag i.o{background:transparent}
+.geo-tm{display:grid;grid-template-columns:3fr 2fr;grid-template-rows:1fr 1fr;gap:3px;width:120px;height:78px}
+.geo-tm i{border-radius:4px}
 @keyframes in{to{opacity:1;transform:none}}
 </style>
 </head>
@@ -248,6 +256,37 @@ a.card:hover{border-color:#cfcfca;box-shadow:0 14px 40px rgba(20,20,20,.07);tran
       <span class="tag live">Oyna</span>
       <h2>Şifre</h2>
       <p>Gizli renk şifresini ipuçlarına göre 10 denemede çözün.</p>
+    </a>
+    <a class="card" href="ulke.html" style="--i:29">
+      <div class="art"><svg class="geo-sil" viewBox="-2 -2 104 104"><path d="M12.2 11.1L12.9 11.6L15.7 10.6L17.4 11.2L18.8 10.3L19.7 8.9L19.5 7.8L21.7 6.1L22.0 8.0L23.2 9.3L24.5 9.7L24.2 10.4L25.4 12.0L25.9 11.9L25.7 10.3L27.4 7.7L27.5 5.8L27.8 5.6L28.6 5.8L29.3 7.5L32.1 6.9L33.1 8.2L33.5 8.0L32.8 5.8L33.1 4.6L33.9 4.4L34.4 5.0L35.5 5.1L35.2 4.0L35.6 2.1L37.2 2.3L38.2 3.0L39.3 2.9L40.3 1.4L41.0 1.0L44.7 0.9L47.4 -0.0L47.2 1.4L48.8 3.7L57.8 5.4L57.7 6.0L55.8 7.4L55.6 7.9L55.9 8.4L57.4 8.7L56.4 10.5L57.1 10.6L57.0 12.2L58.0 12.7L59.0 14.1L57.9 14.4L58.4 14.0L57.3 12.6L56.2 13.2L54.4 12.6L53.2 13.9L49.6 15.6L49.1 15.5L49.9 14.8L49.6 14.8L48.1 15.7L47.7 17.7L48.9 19.6L49.8 20.3L48.8 22.0L48.1 21.6L47.9 22.7L48.9 27.5L50.9 29.7L56.9 33.8L58.5 37.5L59.9 42.3L63.6 46.5L67.9 49.5L73.3 49.5L74.7 49.9L74.6 51.2L72.9 52.5L72.9 53.6L77.3 56.3L81.1 57.9L83.6 60.0L86.9 61.8L90.4 66.0L90.5 67.1L89.6 69.9L87.7 68.7L86.3 65.4L83.1 64.9L82.1 64.3L81.6 63.3L80.6 63.2L79.9 63.7L78.1 66.8L77.1 70.6L77.6 71.6L79.2 72.2L81.2 74.1L81.6 77.8L81.0 78.5L80.0 78.3L78.7 78.8L77.7 79.7L77.4 80.5L77.3 83.4L75.5 85.0L73.9 87.9L71.6 88.0L71.1 87.0L71.1 85.7L71.5 84.9L72.3 84.5L72.9 82.7L72.7 81.5L73.3 80.5L74.9 80.1L75.0 78.3L74.3 77.5L73.7 74.4L71.4 68.2L70.7 67.6L68.7 67.5L66.4 65.8L66.2 65.2L66.6 64.5L66.3 63.6L65.1 61.7L62.2 62.4L63.0 61.1L62.0 60.3L60.2 60.3L58.9 57.3L58.0 56.2L54.7 55.7L53.6 56.2L52.0 54.6L50.5 54.0L46.7 49.5L44.9 48.1L43.7 46.1L41.4 44.8L40.3 45.1L40.1 44.9L40.6 44.5L40.5 43.7L38.0 41.2L37.4 39.9L36.0 39.6L36.1 37.3L34.7 34.3L33.8 30.2L30.7 28.7L27.7 26.6L24.1 25.6L22.6 26.3L18.9 30.8L15.4 31.9L15.3 31.0L16.6 28.9L16.4 28.1L14.2 28.3L11.3 26.4L10.9 24.7L12.2 22.8L12.0 21.7L10.2 20.8L9.5 19.4L9.5 18.9L9.9 18.6L10.9 18.7L12.6 17.7L13.0 16.4L10.6 12.9L10.7 12.2L12.2 11.1ZM70.6 85.3L68.3 89.4L67.4 92.6L67.5 93.8L68.3 94.6L67.9 95.0L68.7 96.5L67.5 98.5L67.5 100.0L65.2 99.8L63.3 98.9L61.6 96.6L60.8 96.0L58.5 95.7L52.5 91.5L50.6 91.3L49.8 90.6L49.2 89.1L49.9 86.9L51.2 85.6L52.4 87.0L53.4 86.6L54.1 85.5L55.0 85.5L58.4 87.6L60.2 87.0L61.8 87.2L63.3 86.9L65.3 85.8L67.5 85.9L70.1 84.6L71.0 84.8L70.6 85.3ZM30.0 59.6L31.2 63.3L30.1 65.6L30.5 68.0L29.5 76.2L29.0 76.4L26.1 75.5L25.5 78.1L24.9 78.6L23.3 78.5L21.7 75.8L21.6 73.1L21.9 70.8L22.6 70.7L22.6 69.7L21.6 68.9L22.1 65.3L21.3 63.3L20.2 61.9L20.4 59.3L21.3 60.0L22.8 60.0L24.5 59.0L27.3 56.0L29.9 58.3L29.5 59.2L30.0 59.6Z" fill="#2f4a63"/></svg></div>
+      <span class="tag live">Oyna</span>
+      <h2>Ülke</h2>
+      <p>Silüetinden ülkeyi bulun; mesafe ve yön ipuçlarıyla yaklaşın.</p>    </a>
+    <a class="card" href="kure.html" style="--i:30">
+      <div class="art"><svg width="88" height="88" viewBox="0 0 88 88"><circle cx="44" cy="44" r="40" fill="#e8f1f7" stroke="#9fb4c6"/><path d="M20 30q12-8 22-2t18 2q6 6 2 14t-12 6q-6 8-14 4t-14-8q-6-8-2-16z" fill="#f6f3ea" stroke="#b9ad93"/><path d="M47 38q6-3 9 2t-3 8q-6 2-8-3t2-7z" fill="#d9462b"/><path d="M30 42q4-2 6 2t-2 6q-4 1-5-3z" fill="#f59e0b"/></svg></div>
+      <span class="tag live">Oyna</span>
+      <h2>Küre</h2>
+      <p>Dünyayı çevirin; sıcak-soğuk renklerle gizli ülkeyi bulun.</p>    </a>
+    <a class="card" href="bayrak.html" style="--i:31">
+      <div class="art"><div class="geo-flag"><img src="bayraklar/tr.svg" alt=""><div><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i></div></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>Bayrak</h2>
+      <p>Parça parça açılan bayrağın hangi ülkeye ait olduğunu bulun.</p>    </a>
+    <a class="card" href="ihracat.html" style="--i:32">
+      <div class="art"><div class="geo-tm"><i style="background:#c98bc5;grid-row:span 2"></i><i style="background:#e59a5a"></i><i style="background:#7ea6d6"></i></div></div>
+      <span class="tag live">Oyna</span>
+      <h2>İhracat</h2>
+      <p>İhracat grafiğinden ülkeyi tahmin edin.</p>    </a>
+    <a class="card" href="neredeyim.html" style="--i:33">
+      <div class="art"><svg width="120" height="78" viewBox="0 0 120 78"><rect width="120" height="78" rx="8" fill="#dfeaf2"/><path d="M18 22q14-8 28 0t20 6q10 0 14 10t-8 14q-10 2-18-4t-18 2q-12 2-16-8t-2-20z" fill="#f6f3ea"/><path d="M80 18q10-4 18 2t4 14q-6 6-14 2t-8-18z" fill="#f6f3ea"/><line x1="44" y1="36" x2="88" y2="26" stroke="#3a3f47" stroke-dasharray="3 3"/><circle cx="44" cy="36" r="5" fill="#d9654b" stroke="#fff" stroke-width="2"/><circle cx="88" cy="26" r="5" fill="#6aa780" stroke="#fff" stroke-width="2"/></svg></div>
+      <span class="tag live">Oyna</span>
+      <h2>Neredeyim</h2>
+      <p>Sokak fotoğrafından dünyada nerede olduğunuzu haritada işaretleyin.</p>    </a>
+    <a class="card" href="sehir.html" style="--i:34">
+      <div class="art"><svg width="120" height="72" viewBox="0 0 120 72"><rect width="120" height="72" rx="8" fill="#2f3a4a"/><rect x="0" y="40" width="120" height="32" fill="#4a5a6e"/><rect x="14" y="14" width="16" height="30" fill="#6b7d93"/><rect x="34" y="6" width="20" height="38" fill="#7f91a7"/><rect x="58" y="18" width="14" height="26" fill="#6b7d93"/><rect x="76" y="10" width="22" height="34" fill="#8a9bb0"/><circle cx="60" cy="38" r="13" fill="rgba(255,255,255,.9)"/><path d="M56 31l11 7-11 7z" fill="#2f3a4a"/></svg></div>
+      <span class="tag live">Oyna</span>
+      <h2>Şehir</h2>
+      <p>Sokak yürüyüşü videosundan hangi şehirde olduğunuzu bulun.</p>
     </a>
   </div>
 </main>

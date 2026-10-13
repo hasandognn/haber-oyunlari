@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Bayrak — Parça Parça Açılan Bayrak</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<link rel="stylesheet" href="cografya.css">
+<style>
+.flag{position:relative;width:min(340px, calc(100vw - 48px), calc((100dvh - 500px) * 4 / 3));aspect-ratio:4/3;border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 10px 30px rgba(0,0,0,.08)}
+.flag img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tiles{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
+.tiles i{background:#e6e3dc;border:2px solid #fff;transition:opacity .6s var(--ease),transform .6s var(--ease)}
+.tiles i.open{opacity:0;transform:scale(.9)}
+.tiles i:not(.open){background-image:radial-gradient(circle at 50% 50%,#ece9e3 0 30%,#e3e0d9 31%)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="flag" id="flag"><img id="flagImg" alt="Gizli bayrak"><div class="tiles" id="tiles"></div></div>
+    <div class="guesses" id="guesses"></div>
+    <div class="answer" id="answer" hidden></div>
+    <div class="guessbox" id="gbox"><input class="field" id="field" placeholder="Ülke yazın…" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="opts" id="opts" hidden></div></div>
+  </main>
+</div>
+
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
+<script src="ulkeler.js"></script>
+<script src="cografya.js"></script>
+<script src="temel.js"></script>
+<script>
+const MAX = 6;
+const { $, store, toast } = T;
+T.kur({
+  ad: "Bayrak",
+  modDegisti: m => start(m, true),
+  yeni: () => start("practice", true), yeniEtiket: "Yeni bayrak",
+  yardim: `<p>Altı parçaya bölünmüş <b>bayrağın</b> hangi ülkeye ait olduğunu bulun.</p>
+    <ul><li>Başta bir parça açıktır. Her yanlış tahminde bir parça daha açılır.</li>
+    <li>Tahminlerinizin gizli ülkeye <b>mesafesini</b> ve <b>yönünü</b> de görürsünüz.</li></ul>
+    <div class="hr"></div><p class="note">Bayraklar: flag-icons (MIT lisansı). Konumlar: Natural Earth.</p>`
+});
+
+let stats = store.get("bayrak-stats", { played: 0, wins: 0, streak: 0, best: 0, lastDay: null, dist: [0, 0, 0, 0, 0, 0] });
+let mode, day, target, guesses, order, over, won;
+const POOL = G.gunlukHavuz(3e5);
+
+/* ---------- Render ---------- */
+function render(fresh = -1) {
+  const t = G.byK.get(target);
+  $("#flagImg").src = `bayraklar/${target}.svg`;
+  const opened = over ? 6 : Math.min(6, guesses.length + 1);
+  $("#tiles").innerHTML = Array.from({ length: 6 }, (_, i) => `<i class="${order.indexOf(i) < opened ? "open" : ""}"></i>`).join("");
+  $("#guesses").innerHTML = Array.from({ length: MAX }, (_, i) => {
+    const k = guesses[i];
+    if (!k) return `<div class="g empty"><div></div><div></div><div></div><div></div></div>`;
+    const c = G.byK.get(k), d = G.km(c, t), hit = k === target;
+    return `<div class="g${hit ? " win" : ""}${i === fresh ? " new" : ""}">
+      <div style="--d:0"><img src="bayraklar/${k}.svg" alt="">${c.a}</div>
+      <div style="--d:1">${hit ? "🎉" : G.kmYaz(d)}</div>
+      <div class="arrow" style="--d:2">${hit ? "✅" : G.yon(c, t).ok}</div>
+      <div style="--d:3">%${G.yakinlik(d)}</div></div>`;
+  }).join("");
+  const a = $("#answer");
+  a.hidden = !over;
+  if (over) { a.className = "answer" + (won ? " win" : ""); a.innerHTML = `<img src="bayraklar/${target}.svg" alt=""><div><small>${won ? `${guesses.length}. tahminde buldunuz` : "Cevap"}</small><b>${t.a}</b></div>`; }
+  $("#gbox").hidden = over;
+}
+
+/* ---------- Oyun ---------- */
+G.kutu($("#field"), $("#opts"), c => guess(c.k), () => new Set(guesses));
+function guess(k) {
+  if (over) return;
+  if (guesses.includes(k)) return toast("Bunu zaten denediniz");
+  guesses.push(k);
+  if (k === target) { over = true; won = true; }
+  else if (guesses.length >= MAX) { over = true; won = false; }
+  else toast("Olmadı, bir parça daha açıldı");
+  save(); render(guesses.length - 1);
+  if (over) finish();
+}
+function finish() {
+  if (mode === "daily") {
+    stats.played++;
+    if (won) { stats.wins++; stats.dist[guesses.length - 1]++; }
+    T.seriGuncelle(stats, day, won);
+    store.set("bayrak-stats", stats);
+  }
+  toast(won ? ["Dahi!", "Muhteşem!", "Harika!", "Çok iyi!", "Güzel!", "Kıl payı!"][guesses.length - 1] : `Cevap: ${G.byK.get(target).a}`, 2000);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1500);
+}
+function start(m, fresh = false) {
+  mode = m; day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(`bayrak-${m}`, null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (s && !G.byK.has(s.target)) s = null;
+  if (!s) {
+    const rand = m === "daily" ? T.rng(day * 7577 + 3) : Math.random;
+    const target = m === "daily" ? POOL[((day * 53 + 7) % POOL.length + POOL.length) % POOL.length] : POOL[Math.floor(rand() * POOL.length)];
+    s = { target, guesses: [], order: T.shuffle([0, 1, 2, 3, 4, 5], rand) };
+  }
+  ({ target, guesses, order } = s);
+  won = guesses.includes(target); over = won || guesses.length >= MAX;
+  save(); render();
+  T.altSatir(m, day, ["Yeni bayrak", () => start("practice", true)]);
+  T.aktifMod(m);
+}
+function save() { store.set(`bayrak-${mode}`, { day, target, guesses, order }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${over ? `<div class="answer${won ? " win" : ""}"><img src="bayraklar/${target}.svg" alt=""><div><small>${won ? `${guesses.length}/${MAX}` : "Cevap"}</small><b>${G.byK.get(target).a}</b></div></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats.played, "Oynanan"], [stats.played ? Math.round(stats.wins / stats.played * 100) : 0, "Kazanma %"], [T.seri(stats), "Güncel Seri"], [stats.best || 0, "En İyi Seri"]])}
+  <h3>Tahmin Dağılımı</h3>${T.dagilim(stats.dist, [1, 2, 3, 4, 5, 6], mode === "daily" && won ? guesses.length - 1 : -1)}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: over })}`);
+T.paylasim(() => {
+  const t = G.byK.get(target);
+  const marks = Array.from({ length: MAX }, (_, i) => i < guesses.length ? (guesses[i] === target ? "🟩" : "🟥") : "⬜").join("");
+  return `Bayrak #${day + 1} ${won ? guesses.length : "X"}/${MAX}\n${marks}`;
+});
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily");
+T.ilkZiyaret("bayrak-seen");
+</script>
+</body>
+</html>

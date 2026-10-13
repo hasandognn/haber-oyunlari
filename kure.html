@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Küre — Sıcak Soğuk Ülke Bulmaca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<link rel="stylesheet" href="cografya.css">
+<style>
+main{gap:12px}
+.globe{position:relative;width:min(420px, calc(100vw - 24px), calc(100dvh - 330px));aspect-ratio:1;touch-action:none;cursor:grab}
+.globe:active{cursor:grabbing}
+.globe canvas{width:100%;height:100%;display:block}
+.zoom{position:absolute;right:4px;bottom:4px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.9);font-size:20px;font-weight:600;cursor:pointer}
+.closest{font-size:14px;color:#3a3a3d;min-height:20px;text-align:center}
+.closest b{color:var(--ink)}
+.list{width:100%;max-width:440px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-height:110px;overflow:auto}
+.chipc{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:5px 11px 5px 6px;font-size:13px;font-weight:600;background:var(--soft)}
+.chipc i{width:14px;height:14px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.1)}
+.chipc em{font-style:normal;color:var(--muted);font-weight:500}
+.chipc.new{animation:pop .4s var(--ease)}
+.legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.legend span{width:140px;height:10px;border-radius:99px;background:linear-gradient(90deg,#7f1d1d,#d9462b,#f59e0b,#fde68a)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="globe" id="globe"><canvas id="cv"></canvas><div class="zoom"><button id="zin" aria-label="Yakınlaştır">+</button><button id="zout" aria-label="Uzaklaştır">−</button></div></div>
+    <div class="legend">Sıcak<span></span>Soğuk</div>
+    <div class="closest" id="closest"></div>
+    <div class="answer" id="answer" hidden></div>
+    <div class="guessbox" id="gbox"><input class="field" id="field" placeholder="Ülke yazın…" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="opts" id="opts" hidden></div></div>
+    <div class="list" id="list"></div>
+    <button class="chip" id="giveBtn">Pes et</button>
+  </main>
+</div>
+
+<script src="vendor/d3-array.min.js"></script>
+<script src="vendor/d3-geo.min.js"></script>
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
+<script src="ulkeler.js"></script>
+<script src="cografya.js"></script>
+<script src="temel.js"></script>
+<script>
+const { $, store, toast } = T;
+T.kur({
+  ad: "Küre",
+  modDegisti: m => start(m, true),
+  yeni: () => start("practice", true), yeniEtiket: "Yeni ülke",
+  yardim: `<p>Gizli <b>ülkeyi</b> bulun. Tahmin hakkınız sınırsız.</p>
+    <ul><li>Tahmin ettiğiniz her ülke küre üzerinde gizli ülkeye ne kadar yakınsa o kadar <b>koyu kırmızı</b> boyanır; uzaksa açık sarı kalır.</li>
+    <li>Mesafe iki ülkenin <b>sınırları</b> arasındadır: komşu ülkeler en koyu renktedir.</li>
+    <li>Küreyi parmağınızla çevirin, + ve − ile yakınlaştırın.</li></ul>
+    <div class="hr"></div><p class="note">Sınırlar: Natural Earth (kamu malı). Çizim: d3-geo (ISC lisansı).</p>`,
+  pencereler: [["giveup", "Pes etmek istiyor musunuz?", `<p>Gizli ülke gösterilecek ve bu oyun kaybedilmiş sayılacak.</p><div class="confirm"><button class="btn ghost" data-close>Vazgeç</button><button class="btn" id="giveYes">Göster</button></div>`, false]]
+});
+
+let stats = store.get("kure-stats", { played: 0, wins: 0, total: 0, streak: 0, best: 0, lastDay: null, dist: [0, 0, 0, 0, 0] });
+let mode, day, target, guesses, over, won, gaveUp;
+const POOL = G.gunlukHavuz(1e6);
+
+/* ---------- Ülke şekilleri ---------- */
+const FEAT = new Map(G.U.map(c => {
+  let f = { type: "Feature", geometry: { type: "MultiPolygon", coordinates: c.g.map(r => [r]) } };
+  // d3 küresel dış halkaları saat yönünde bekler; ters ise halkaları çevir
+  if (d3.geoArea(f) > 2 * Math.PI) f = { type: "Feature", geometry: { type: "MultiPolygon", coordinates: c.g.map(r => [r.slice().reverse()]) } };
+  return [c.k, f];
+}));
+// sınırlar arası en kısa mesafe (km), nokta seyreltilmiş
+const PTS = new Map();
+function pts(k) {
+  if (!PTS.has(k)) {
+    const all = G.byK.get(k).g.flat();
+    const step = Math.max(1, Math.floor(all.length / 500));
+    PTS.set(k, all.filter((_, i) => i % step === 0).map(([x, y]) => [x * Math.PI / 180, y * Math.PI / 180, Math.cos(y * Math.PI / 180)]));
+  }
+  return PTS.get(k);
+}
+const DIST = new Map();
+function borderKm(a, b) {
+  if (a === b) return 0;
+  const key = a < b ? a + b : b + a;
+  if (DIST.has(key)) return DIST.get(key);
+  let best = Infinity;
+  for (const [x1, y1, c1] of pts(a)) for (const [x2, y2, c2] of pts(b)) {
+    const h = Math.sin((y2 - y1) / 2) ** 2 + c1 * c2 * Math.sin((x2 - x1) / 2) ** 2;
+    if (h < best) best = h;
+  }
+  let km = Math.round(2 * 6371 * Math.asin(Math.sqrt(Math.min(1, best))));
+  if (km < 40) km = 0;   // seyreltilmiş sınırlarda komşular arasında küçük boşluk kalabilir
+  DIST.set(key, km);
+  return km;
+}
+function color(km) {
+  if (km === 0) return "#7f1d1d";
+  const t = Math.min(1, Math.sqrt(km / 9000));
+  const stops = [[0, [127, 29, 29]], [.33, [217, 70, 43]], [.66, [245, 158, 11]], [1, [253, 230, 138]]];
+  let i = 0; while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
+  const [t0, c0] = stops[i], [t1, c1] = stops[i + 1], u = (t - t0) / (t1 - t0);
+  return `rgb(${c0.map((v, j) => Math.round(v + (c1[j] - v) * u)).join(",")})`;
+}
+
+/* ---------- Küre çizimi ---------- */
+const cv = $("#cv"), ctx = cv.getContext("2d");
+const proj = d3.geoOrthographic().clipAngle(90).precision(.5);
+const path = d3.geoPath(proj, ctx);
+const sphere = { type: "Sphere" }, grat = d3.geoGraticule10();
+let rot = [-30, -30], zoom = 1, size = 0;
+function resize() {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  size = r.width;
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+function draw() {
+  proj.translate([size / 2, size / 2]).scale(size / 2 * .96 * zoom).rotate(rot);
+  ctx.clearRect(0, 0, size, size);
+  ctx.beginPath(); path(sphere); ctx.fillStyle = "#e8f1f7"; ctx.fill();
+  ctx.beginPath(); path(grat); ctx.strokeStyle = "rgba(47,74,99,.08)"; ctx.lineWidth = 1; ctx.stroke();
+  const hot = new Map(guesses.map(k => [k, k === target ? "#6aa780" : color(borderKm(k, target))]));
+  if (over && !hot.has(target)) hot.set(target, "#6aa780");
+  for (const [k, f] of FEAT) {
+    ctx.beginPath(); path(f);
+    ctx.fillStyle = hot.get(k) || "#f6f3ea"; ctx.fill();
+    ctx.strokeStyle = hot.has(k) ? "rgba(0,0,0,.35)" : "rgba(120,110,90,.35)"; ctx.lineWidth = hot.has(k) ? .9 : .5; ctx.stroke();
+  }
+  ctx.beginPath(); path(sphere); ctx.strokeStyle = "rgba(47,74,99,.35)"; ctx.lineWidth = 1.2; ctx.stroke();
+}
+let anim = null;
+function flyTo(k) {
+  const c = G.byK.get(k), from = rot.slice(), to = [-c.x, -c.y];
+  // en kısa yönden dön
+  while (to[0] - from[0] > 180) to[0] -= 360;
+  while (to[0] - from[0] < -180) to[0] += 360;
+  const t0 = performance.now(), dur = 900;
+  cancelAnimationFrame(anim);
+  const step = t => {
+    const u = Math.min(1, (t - t0) / dur), e = u < .5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
+    rot = [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e];
+    draw();
+    if (u < 1) anim = requestAnimationFrame(step);
+  };
+  anim = requestAnimationFrame(step);
+}
+let drag = null;
+cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); cancelAnimationFrame(anim); drag = { x: e.clientX, y: e.clientY, r: rot.slice() }; });
+cv.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const k = 120 / (size * zoom);
+  rot = [drag.r[0] + (e.clientX - drag.x) * k, Math.max(-90, Math.min(90, drag.r[1] - (e.clientY - drag.y) * k))];
+  draw();
+});
+cv.addEventListener("pointerup", () => drag = null);
+cv.addEventListener("wheel", e => { e.preventDefault(); zoom = Math.max(1, Math.min(8, zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); draw(); }, { passive: false });
+$("#zin").onclick = () => { zoom = Math.min(8, zoom * 1.4); draw(); };
+$("#zout").onclick = () => { zoom = Math.max(1, zoom / 1.4); draw(); };
+addEventListener("resize", resize);
+
+/* ---------- Render ---------- */
+function render(fresh) {
+  const sorted = guesses.filter(k => k !== target).map(k => [k, borderKm(k, target)]).sort((a, b) => a[1] - b[1]);
+  const best = sorted[0];
+  $("#closest").innerHTML = over ? "" : best ? `En yakın tahmin: <b>${G.byK.get(best[0]).a}</b> · ${best[1] === 0 ? "komşu" : G.kmYaz(best[1])} · ${guesses.length} tahmin` : "Bir ülke yazarak başlayın.";
+  $("#list").innerHTML = sorted.map(([k, d]) => `<span class="chipc${k === fresh ? " new" : ""}"><i style="background:${color(d)}"></i>${G.byK.get(k).a}<em>${d === 0 ? "komşu" : G.kmYaz(d)}</em></span>`).join("");
+  const a = $("#answer");
+  a.hidden = !over;
+  if (over) { const t = G.byK.get(target); a.className = "answer" + (won ? " win" : ""); a.innerHTML = `<img src="bayraklar/${target}.svg" alt=""><div><small>${won ? `${guesses.length} tahminde buldunuz` : "Cevap"}</small><b>${t.a}</b></div>`; }
+  $("#gbox").hidden = over;
+  $("#giveBtn").hidden = over;
+  draw();
+}
+
+/* ---------- Oyun ---------- */
+G.kutu($("#field"), $("#opts"), c => guess(c.k), () => new Set(guesses));
+function guess(k) {
+  if (over) return;
+  if (guesses.includes(k)) return toast("Bunu zaten denediniz");
+  guesses.push(k);
+  if (k === target) { over = true; won = true; }
+  else { const d = borderKm(k, target); toast(d === 0 ? "Çok sıcak! Komşu bir ülke" : `${G.byK.get(k).a}: ${G.kmYaz(d)}`); }
+  save(); render(k); flyTo(k);
+  if (over) finish();
+}
+$("#giveBtn").onclick = () => T.open("giveup");
+document.addEventListener("click", e => { if (e.target.id === "giveYes") { T.closeAll(); if (over) return; over = true; won = false; gaveUp = true; save(); render(); flyTo(target); finish(); } });
+const BUCKET = n => n <= 5 ? 0 : n <= 10 ? 1 : n <= 15 ? 2 : n <= 20 ? 3 : 4;
+function finish() {
+  if (mode === "daily") {
+    stats.played++;
+    if (won) { stats.wins++; stats.total += guesses.length; stats.dist[BUCKET(guesses.length)]++; }
+    T.seriGuncelle(stats, day, won);
+    store.set("kure-stats", stats);
+  }
+  toast(won ? `Buldunuz! ${guesses.length} tahminde` : `Cevap: ${G.byK.get(target).a}`, 2000);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1800);
+}
+function start(m, fresh = false) {
+  mode = m; day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(`kure-${m}`, null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (s && !G.byK.has(s.target)) s = null;
+  if (!s) s = { target: m === "daily" ? POOL[((day * 41 + 17) % POOL.length + POOL.length) % POOL.length] : T.shuffle(POOL.slice())[0], guesses: [], gaveUp: false };
+  ({ target, guesses, gaveUp } = s);
+  won = guesses.includes(target); over = won || gaveUp;
+  save(); render();
+  if (guesses.length) { const c = G.byK.get(guesses.at(-1)); rot = [-c.x, -c.y]; }
+  draw();
+  T.altSatir(m, day, ["Yeni ülke", () => start("practice", true)]);
+  T.aktifMod(m);
+}
+function save() { store.set(`kure-${mode}`, { day, target, guesses, gaveUp }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${over ? `<div class="answer${won ? " win" : ""}"><img src="bayraklar/${target}.svg" alt=""><div><small>${won ? `${guesses.length} tahminde` : "Cevap"}</small><b>${G.byK.get(target).a}</b></div></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats.played, "Oynanan"], [stats.played ? Math.round(stats.wins / stats.played * 100) : 0, "Kazanma %"], [stats.wins ? (stats.total / stats.wins).toFixed(1).replace(".", ",") : "–", "Ort. Tahmin"], [T.seri(stats), "Seri"]])}
+  <h3>Tahmin Sayısı</h3>${T.dagilim(stats.dist, ["1–5", "6–10", "11–15", "16–20", "21+"], mode === "daily" && won ? BUCKET(guesses.length) : -1)}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: over })}`);
+T.paylasim(() => {
+  const emo = guesses.map(k => k === target ? "🟩" : (d => d === 0 ? "🟥" : d < 1500 ? "🟧" : d < 4000 ? "🟨" : "⬜")(borderKm(k, target))).join("");
+  return `Küre #${day + 1} ${won ? `${guesses.length} tahminde 🌍` : "X"}\n${emo}`;
+});
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily");
+resize();
+T.ilkZiyaret("kure-seen");
+</script>
+</body>
+</html>

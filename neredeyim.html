@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Neredeyim — Fotoğraftan Konum Bulma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+main{gap:10px;max-width:640px;padding-top:10px}
+.hud{width:100%;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+.hud b{color:var(--ink);font-size:16px;font-variant-numeric:tabular-nums}
+.rounds{display:flex;gap:5px}
+.rounds i{width:26px;height:6px;border-radius:99px;background:var(--key)}
+.rounds i.done{background:var(--ok)}
+.rounds i.cur{background:var(--ink)}
+.photo{position:relative;width:100%;aspect-ratio:16/10;max-height:36dvh;border-radius:14px;overflow:hidden;background:#222;cursor:zoom-in}
+.photo img{width:100%;height:100%;object-fit:cover;display:block;transition:opacity .4s}
+.photo img.load{opacity:0}
+.credit{position:absolute;left:0;right:0;bottom:0;padding:16px 10px 6px;font-size:10.5px;color:rgba(255,255,255,.85);background:linear-gradient(transparent,rgba(0,0,0,.55));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit a{color:inherit}
+.map{position:relative;width:100%;height:min(40dvh, 380px);min-height:220px;border-radius:14px;overflow:hidden;background:#dfeaf2;touch-action:none;cursor:crosshair}
+.map canvas{width:100%;height:100%;display:block}
+.zoom{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.92);font-size:19px;font-weight:600;cursor:pointer}
+.res{width:100%;border-radius:14px;background:var(--soft);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.res b{font-size:18px}
+.res small{display:block;color:var(--muted);font-size:12px}
+.full{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:70;display:none;align-items:center;justify-content:center;cursor:zoom-out}
+.full.on{display:flex}
+.full img{max-width:100%;max-height:100%;object-fit:contain}
+.sumrow{display:flex;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}
+.sumrow:last-child{border-bottom:0}
+.sumrow span:last-child{font-variant-numeric:tabular-nums;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="hud"><div class="rounds" id="rounds"></div><span>Puan <b id="score">0</b></span></div>
+    <div class="photo" id="photo"><img id="img" alt="Bir sokaktan görüntü"><div class="credit" id="credit"></div></div>
+    <div class="map" id="map"><canvas id="cv"></canvas><div class="zoom"><button id="zin" aria-label="Yakınlaştır">+</button><button id="zout" aria-label="Uzaklaştır">−</button></div></div>
+    <div class="res" id="res" hidden></div>
+    <div class="actions"><button class="btn" id="goBtn" disabled>Tahmin et</button></div>
+  </main>
+</div>
+<div class="full" id="full"><img id="fullImg" alt=""></div>
+
+<script src="vendor/d3-array.min.js"></script>
+<script src="vendor/d3-geo.min.js"></script>
+<script src="ulkeler.js"></script>
+<script src="cografya.js"></script>
+<script src="temel.js"></script>
+<script>
+/* Fotoğraflar: Wikimedia Commons (CC lisanslı), konumları fotoğrafın coğrafi etiketinden. */
+const PHOTOS = [{"img":"fotograflar/0.jpg","lat":41.0671,"lon":29.0064,"city":"İstanbul","author":"erkutpkare","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:%C3%87evre_Yolu_-_panoramio.jpg"},
+{"img":"fotograflar/1.jpg","lat":41.0367,"lon":28.9869,"city":"İstanbul","author":"Robot8A","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Istanbul_Aug_2023_16_57_18_973000.jpeg"},
+{"img":"fotograflar/2.jpg","lat":41.0082,"lon":28.9784,"city":"İstanbul","author":"Slyronit","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Streets_of_Istanbul_2.jpg"},
+{"img":"fotograflar/3.jpg","lat":48.8608,"lon":2.318,"city":"Paris","author":"Bertrand Paris Romaskevich","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:In_Out_(91198447).jpeg"},
+{"img":"fotograflar/4.jpg","lat":48.8569,"lon":2.3412,"city":"Paris","author":"greg westfall from Fort Worth, Texas, USA","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Bike_(9528430498).jpg"},
+{"img":"fotograflar/5.jpg","lat":48.8569,"lon":2.3412,"city":"Paris","author":"greg westfall from Fort Worth, Texas, USA","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Grom_(9647886305).jpg"},
+{"img":"fotograflar/6.jpg","lat":48.8687,"lon":2.3009,"city":"Paris","author":"Alexandre Prevot from Nancy, France","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Bentley_Bentayga_(52626138202).jpg"},
+{"img":"fotograflar/7.jpg","lat":35.7784,"lon":139.8053,"city":"Tokyo","author":"Masato OTA","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Cut-rate_store_%22Don_Quixote%22_-_panoramio_-_Masato_OTA.jpg"},
+{"img":"fotograflar/8.jpg","lat":35.7896,"lon":139.2762,"city":"Tokyo","author":"moonwalker76","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Insurances_Persons_near_Ome_HelloWork_-_panoramio.jpg"},
+{"img":"fotograflar/9.jpg","lat":40.7649,"lon":-73.9876,"city":"New York","author":"Emanuela Meme Giudic…","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:New_York_-_panoramio_(186).jpg"},
+{"img":"fotograflar/10.jpg","lat":41.9181,"lon":12.5003,"city":"Roma","author":"Kevin.B","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:ATAC_tram_n%C2%B07005_(2).jpg"},
+{"img":"fotograflar/11.jpg","lat":41.3851,"lon":2.1734,"city":"Barselona","author":"Ofer Davidi","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Barcelona_Foggy_Day_(186293149).jpeg"},
+{"img":"fotograflar/12.jpg","lat":41.4024,"lon":2.2009,"city":"Barselona","author":"ZXavier Badia Castellà","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Cant%C3%AD_11.jpg"},
+{"img":"fotograflar/13.jpg","lat":41.3964,"lon":2.1594,"city":"Barselona","author":"Bachounda","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Barcelone_City_By_Bachounda_(27).jpg"},
+{"img":"fotograflar/14.jpg","lat":41.4079,"lon":2.2023,"city":"Barselona","author":"Rafael Tobías","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Building_In_Progress_(141824585).jpeg"},
+{"img":"fotograflar/15.jpg","lat":55.8169,"lon":37.4345,"city":"Moskova","author":"Gennady Grachev from Moscow, Russia","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Moscow,_former_Tushino_airfield_(16574626097).jpg"},
+{"img":"fotograflar/16.jpg","lat":55.7712,"lon":37.6552,"city":"Moskova","author":"Gennady Grachev from Moscow, Russia","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Moscow,_Ryazansky_Proyezd,_Brovkin_building_(21550407984).jpg"},
+{"img":"fotograflar/17.jpg","lat":55.756,"lon":37.5276,"city":"Moskova","author":"Gennady Grachev from Moscow, Russia","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Moscow,_Shelepikhinsky_Tupik_and_Third_Ring_elevated_(21059557400).jpg"},
+{"img":"fotograflar/18.jpg","lat":55.7403,"lon":37.7918,"city":"Moskova","author":"Gennady Grachev from Moscow, Russia","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Moscow,_Novotetyorki_Street_(31178428012).jpg"},
+{"img":"fotograflar/19.jpg","lat":29.9901,"lon":31.2291,"city":"Kahire","author":"Mujaddara","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Athar_an_Nabi,_Misr_Al_Qadimah,_Cairo_Governorate,_Egypt_-_panoramio.jpg"},
+{"img":"fotograflar/20.jpg","lat":30.0488,"lon":31.2634,"city":"Kahire","author":"Radosław Botev","lic":"CC BY 3.0 pl","page":"https://commons.wikimedia.org/wiki/File:Al_Mashhad_al-Husseini_street_Cairo_2019.jpg"},
+{"img":"fotograflar/21.jpg","lat":19.2465,"lon":-99.1013,"city":"Meksiko","author":"Rubén R Ortega","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:A_Trav%C3%A9s_Del_Azar_Walking_Through_Randomness_(155682377).jpeg"},
+{"img":"fotograflar/22.jpg","lat":19.3852,"lon":-99.1889,"city":"Meksiko","author":"Correogsk","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Distribuidor_Vial_sur_CDMX_01.jpg"},
+{"img":"fotograflar/23.jpg","lat":19.339,"lon":-99.1079,"city":"Meksiko","author":"Jbribeiro1","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Calle_16_de_Septiembre_-_Culhuac%C3%A1n_-_Mexico_2024.jpg"},
+{"img":"fotograflar/24.jpg","lat":19.4317,"lon":-99.1464,"city":"Meksiko","author":"Luisalvaz","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Autob%C3%BAs_de_transporte_p%C3%BAblico_durante_una_filmaci%C3%B3n_en_la_Ciudad_de_M%C3%A9xico_02.jpg"},
+{"img":"fotograflar/25.jpg","lat":38.7136,"lon":-9.1335,"city":"Lizbon","author":"Luiyo from Madrid, Spain","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:2011-04-22_Portugal_295_-_Lisboa_(5695139887).jpg"},
+{"img":"fotograflar/26.jpg","lat":38.6936,"lon":-9.2058,"city":"Lizbon","author":"Luiyo from Madrid, Spain","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:2011-04-23_Portugal_456_-_Lisboa_(5695328101).jpg"},
+{"img":"fotograflar/27.jpg","lat":38.6937,"lon":-9.2061,"city":"Lizbon","author":"xiquinhosilva from Cacau","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:33256-Lisbon_(35459185513).jpg"},
+{"img":"fotograflar/28.jpg","lat":52.3623,"lon":4.9256,"city":"Amsterdam","author":"Andrew Kambel andrewk","lic":"CC0","page":"https://commons.wikimedia.org/wiki/File:Delivery_truck_at_sunrise_(Unsplash).jpg"},
+{"img":"fotograflar/29.jpg","lat":52.3827,"lon":4.8662,"city":"Amsterdam","author":"ainali @ Mapillary.com","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Isaac_Gogelweg_-_Mapillary_(kEFwtCgOnzqUV4MrE_V2CA).jpg"},
+{"img":"fotograflar/30.jpg","lat":50.0875,"lon":14.4055,"city":"Prag","author":"Miguel Mendez","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:%22Miniature%22_Prague1.jpg"},
+{"img":"fotograflar/31.jpg","lat":50.0885,"lon":14.3503,"city":"Prag","author":"Daniel Baránek","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Praha_6,_alej_%C4%8Cesko-tureck%C3%A9_spolupr%C3%A1ce_1.jpg"},
+{"img":"fotograflar/32.jpg","lat":48.2413,"lon":16.4332,"city":"Viyana","author":"Paul Korecky","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:2017-06-08_AT_Wien_22_Donaustadt,_Wagramer_Stra%C3%9Fe,_Donau_Zentrum,_Vienna_Airport_Lines_BD-2009_Linie_VAL_3_(50450986747).jpg"},
+{"img":"fotograflar/33.jpg","lat":48.204,"lon":16.3688,"city":"Viyana","author":"Bybbisch94","lic":"CC BY 4.0","page":"https://commons.wikimedia.org/wiki/File:20231222.Wien.Albertinaplatz.-011.jpg"},
+{"img":"fotograflar/34.jpg","lat":37.6177,"lon":127.0907,"city":"Seul","author":"안우석","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bonghwasan_Seouruiryowon_Station_20140228_171922.JPG"},
+{"img":"fotograflar/35.jpg","lat":37.617,"lon":127.093,"city":"Seul","author":"안우석","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bonghwasan_Seouruiryowon_Station_20140228_172227.JPG"},
+{"img":"fotograflar/36.jpg","lat":37.6165,"lon":127.0929,"city":"Seul","author":"안우석","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bonghwasan_Seouruiryowon_Station_20140228_172454.JPG"},
+{"img":"fotograflar/37.jpg","lat":37.6173,"lon":127.0906,"city":"Seul","author":"안우석","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bonghwasan_Seouruiryowon_Station_20140228_172748.JPG"},
+{"img":"fotograflar/38.jpg","lat":-33.9489,"lon":18.5318,"city":"Cape Town","author":"Chell Hill","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:2008-02-12_Township_street.jpg"},
+{"img":"fotograflar/39.jpg","lat":-33.9143,"lon":18.4237,"city":"Cape Town","author":"Darren Glanville from Acle, Norfolk, UK","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Downtown_Cape_Town_(11270084343).jpg"},
+{"img":"fotograflar/40.jpg","lat":-33.9288,"lon":18.4082,"city":"Cape Town","author":"Lourens van Dyk","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Table_Mountain_from_the_4th_floor_-_panoramio.jpg"},
+{"img":"fotograflar/41.jpg","lat":-1.3104,"lon":36.7805,"city":"Nairobi","author":"Ninaras","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Kibera_slum_Nairobi_Kenya_01.jpg"},
+{"img":"fotograflar/42.jpg","lat":-1.3187,"lon":36.8162,"city":"Nairobi","author":"flightlog","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Roads_in_Kenya_22.jpg"},
+{"img":"fotograflar/43.jpg","lat":-1.2079,"lon":36.6575,"city":"Nairobi","author":"flightlog","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:A104_in_Nairobi_2017.jpg"},
+{"img":"fotograflar/44.jpg","lat":-1.3153,"lon":36.7991,"city":"Nairobi","author":"Elkanah254","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Boda_boda_2.jpg"},
+{"img":"fotograflar/45.jpg","lat":19.1733,"lon":72.9566,"city":"Mumbai","author":"Saurabh Shetty","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Airtel_Gallery,_Mulund_-_panoramio.jpg"},
+{"img":"fotograflar/46.jpg","lat":18.921,"lon":72.8322,"city":"Mumbai","author":"Udaykumar PR","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Colaba,Mumbai_-_panoramio_(23).jpg"},
+{"img":"fotograflar/47.jpg","lat":18.9439,"lon":72.8288,"city":"Mumbai","author":"Udaykumar PR","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Dhobitalao,Mumbai_-_panoramio_(2).jpg"},
+{"img":"fotograflar/48.jpg","lat":13.7506,"lon":100.5637,"city":"Bangkok","author":"NC-MyLifeArm","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Asok-Din_Daeng_Road,_Ratchathewi_District.jpg"},
+{"img":"fotograflar/49.jpg","lat":13.7544,"lon":100.5458,"city":"Bangkok","author":"Piyatad","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Airport_Link_and_Eastin_Hotel_-_panoramio.jpg"},
+{"img":"fotograflar/50.jpg","lat":13.7489,"lon":100.5684,"city":"Bangkok","author":"Serj Kras","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bang_Kapi,_Huai_Khwang,_Bangkok,_Thailand_-_panoramio_-_Serj_Kras_(3).jpg"},
+{"img":"fotograflar/51.jpg","lat":13.743,"lon":100.5894,"city":"Bangkok","author":"Masahiro Awatani","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bang_Kapi,_Huai_Khwang,_Bangkok,_Thailand_-_panoramio_-_Masahiro_Awatani_(2).jpg"},
+{"img":"fotograflar/52.jpg","lat":-33.9463,"lon":151.1705,"city":"Sidney","author":"BeauGiles","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:General_Holmes_Drive_at_Sydney_Airport.jpg"},
+{"img":"fotograflar/53.jpg","lat":-22.9729,"lon":-43.1859,"city":"Rio de Janeiro","author":"Rodney Damián","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Copacabana,_Rio_de_Janeiro_-_State_of_Rio_de_Janeiro,_Brazil_-_panoramio_(12).jpg"},
+{"img":"fotograflar/54.jpg","lat":-34.6065,"lon":-58.5103,"city":"Buenos Aires","author":"Roberto Fiadone","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Caf%C3%A9_de_Garc%C3%ADa_1.jpg"},
+{"img":"fotograflar/55.jpg","lat":-34.5859,"lon":-58.4151,"city":"Buenos Aires","author":"Barcex","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Buenos_Aires_-_Colectivo_110_-_120227_145558.jpg"},
+{"img":"fotograflar/56.jpg","lat":-34.604,"lon":-58.3818,"city":"Buenos Aires","author":"Liam Quinn from Canada","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Buenos_Aires_traffic_(5423669512).jpg"},
+{"img":"fotograflar/57.jpg","lat":-34.5891,"lon":-58.4293,"city":"Buenos Aires","author":"Gervacio Rosales","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Calle_honduras_-_palermo_soho_-_panoramio.jpg"},
+{"img":"fotograflar/58.jpg","lat":-12.1035,"lon":-77.0315,"city":"Lima","author":"(SVPG)","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Avenida_Andr%C3%A9s_Arambur%C3%BA.jpg"},
+{"img":"fotograflar/59.jpg","lat":-12.0589,"lon":-77.0459,"city":"Lima","author":"M@ximili@no","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Cruce_Av_Arica_con_Jr_Gral_Varela_-_Lima_,_distrito_de_Bre%C3%B1a_-_panoramio.jpg"},
+{"img":"fotograflar/60.jpg","lat":-11.937,"lon":-77.0723,"city":"Lima","author":"FranciscomMaZa","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Primera_de_Pro.jpg"},
+{"img":"fotograflar/61.jpg","lat":-12.0444,"lon":-77.0232,"city":"Lima","author":"Alexey Komarov","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Feral_dog_in_Lima_2019-10-06.jpg"},
+{"img":"fotograflar/62.jpg","lat":23.1297,"lon":-82.3496,"city":"Havana","author":"Aniol","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Autobuses_en_La_Habana_20160310.jpg"},
+{"img":"fotograflar/63.jpg","lat":23.0561,"lon":-82.3719,"city":"Havana","author":"Aniol","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Arroyo_Naranjo_20160307_181431.jpg"},
+{"img":"fotograflar/64.jpg","lat":23.1417,"lon":-82.3513,"city":"Havana","author":"Jesus Alejandro Guer…","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Atras_de_la_Feria_-_panoramio.jpg"},
+{"img":"fotograflar/65.jpg","lat":23.1157,"lon":-82.4174,"city":"Havana","author":"enrique1363","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Avenida_31_y_calle_30_-_panoramio.jpg"},
+{"img":"fotograflar/66.jpg","lat":37.7809,"lon":-122.4944,"city":"San Francisco","author":"FASTILY","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:34th_Avenue,_between_Clement_Street_and_Geary_Boulevard,_San_Francisco_2015-01-03.jpg"},
+{"img":"fotograflar/67.jpg","lat":37.7803,"lon":-122.4944,"city":"San Francisco","author":"FASTILY","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:34th_Avenue,_between_Clement_Street_and_Geary_Boulevard,_San_Francisco_2015-01-03_01.jpg"},
+{"img":"fotograflar/68.jpg","lat":37.7486,"lon":-122.4706,"city":"San Francisco","author":"Pi.1415926535","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:14th_Avenue_from_Quintara_Street,_September_2017.JPG"},
+{"img":"fotograflar/69.jpg","lat":37.7237,"lon":-122.4551,"city":"San Francisco","author":"Pi.1415926535","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Brighton_Avenue_from_Ocean_Avenue,_January_2018.JPG"},
+{"img":"fotograflar/70.jpg","lat":43.6656,"lon":-79.3811,"city":"Toronto","author":"Blueiriscity","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Downtown_Toronto,_winter_2014.jpg"},
+{"img":"fotograflar/71.jpg","lat":64.1457,"lon":-21.9374,"city":"Reykjavik","author":"Christian Bickel","lic":"CC BY-SA 2.0 de","page":"https://commons.wikimedia.org/wiki/File:B%C3%B3khl%C3%B6%C3%B0ust%C3%ADgur1.jpg"},
+{"img":"fotograflar/72.jpg","lat":64.1437,"lon":-21.9328,"city":"Reykjavik","author":"Steven Isaacson from Somerville, MA, USA","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Bjargarstigur_16.jpg"},
+{"img":"fotograflar/73.jpg","lat":64.1437,"lon":-21.9294,"city":"Reykjavik","author":"Stig Nygaard","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:%22Under-floor_heating%22_in_the_street.jpg"},
+{"img":"fotograflar/74.jpg","lat":59.3233,"lon":18.088,"city":"Stockholm","author":"Jorge Franganillo","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Stockholm_(52588455492).jpg"},
+{"img":"fotograflar/75.jpg","lat":59.3079,"lon":18.059,"city":"Stockholm","author":"Slottsviken51","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Sachsgatan.jpg"},
+{"img":"fotograflar/76.jpg","lat":37.97,"lon":23.7291,"city":"Atina","author":"Sjaak Kempe from Groningen, The Netherlands","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:20140409_25_Athens_Plaka_(13824854163).jpg"},
+{"img":"fotograflar/77.jpg","lat":35.0277,"lon":135.7941,"city":"Kyoto","author":"そらみみ (Soramimi)","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Road_near_Jishoji_Temple_20140318.JPG"},
+{"img":"fotograflar/78.jpg","lat":35.0101,"lon":135.7838,"city":"Kyoto","author":"Raita Futo from Tokyo, Japan","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:%E3%83%A4%E3%83%9E%E3%82%A4%E3%83%81%E3%83%91%E3%83%B3_(39683432201).jpg"},
+{"img":"fotograflar/79.jpg","lat":35.0153,"lon":135.6774,"city":"Kyoto","author":"DimiTalen","lic":"CC0","page":"https://commons.wikimedia.org/wiki/File:Busy_commercial_street_near_Arashiyama_Station_(Keifuku),_Kyoto,_2016.jpg"},
+{"img":"fotograflar/80.jpg","lat":1.2872,"lon":103.8422,"city":"Singapur","author":"Nicolas Lannuzel from Singapore, Singapore","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Block_34_in_Upper_Cross_Street_(21193697550).jpg"},
+{"img":"fotograflar/81.jpg","lat":1.2833,"lon":103.86,"city":"Singapur","author":"Nagono","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:For_the_Singapore_Flyer_-_panoramio.jpg"},
+{"img":"fotograflar/82.jpg","lat":1.3018,"lon":103.8527,"city":"Singapur","author":"Riley from Christchurch, New Zealand","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Boy_racers,_Singapore-style..._(24985219951).jpg"},
+{"img":"fotograflar/83.jpg","lat":1.2998,"lon":103.8596,"city":"Singapur","author":"Xixian Wang","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:City_People_And_Soft_Summer_Wind_In_The_Air_(226402459).jpeg"},
+{"img":"fotograflar/84.jpg","lat":22.3325,"lon":114.197,"city":"Hong Kong","author":"LN9267","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:The_Latitude_bus_stop_28-09-2026.jpg"},
+{"img":"fotograflar/85.jpg","lat":39.9178,"lon":116.3912,"city":"Pekin","author":"Ronnie Macdonald from Chelmsford, United Kingdom","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Beijing_34_(4941662102).jpg"},
+{"img":"fotograflar/86.jpg","lat":39.9178,"lon":116.3912,"city":"Pekin","author":"Ronnie Macdonald from Chelmsford, United Kingdom","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Beijing_29_(4941647982).jpg"},
+{"img":"fotograflar/87.jpg","lat":39.9178,"lon":116.3912,"city":"Pekin","author":"Ronnie Macdonald from Chelmsford, United Kingdom","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Beijing_05_(4941025615).jpg"},
+{"img":"fotograflar/88.jpg","lat":39.9178,"lon":116.3912,"city":"Pekin","author":"Ronnie Macdonald from Chelmsford, United Kingdom","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Beijing_03_(4941599696).jpg"},
+{"img":"fotograflar/89.jpg","lat":31.1456,"lon":121.1048,"city":"Şanghay","author":"Fayhoo","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Fuquan_Street.jpg"},
+{"img":"fotograflar/90.jpg","lat":31.2301,"lon":121.4669,"city":"Şanghay","author":"そらみみ","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Huangpibeilu_Road_20180925-1.jpg"},
+{"img":"fotograflar/91.jpg","lat":30.8872,"lon":121.0107,"city":"Şanghay","author":"そらみみ","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Fengli_Road_in_Fengjing_Town.jpg"},
+{"img":"fotograflar/92.jpg","lat":31.2003,"lon":121.4523,"city":"Şanghay","author":"そらみみ","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Crossroads_of_Pingjiang_Road_and_Fenglin_Road.jpg"},
+{"img":"fotograflar/93.jpg","lat":28.6207,"lon":77.2206,"city":"Delhi","author":"Kushared","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:A_morning_in_Delhi_2019.jpg"},
+{"img":"fotograflar/94.jpg","lat":28.5608,"lon":77.2725,"city":"Delhi","author":"DiplomatTesterMan","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Anti_CAB_NRC_protestors_stopping_traffic.jpg"},
+{"img":"fotograflar/95.jpg","lat":41.8127,"lon":44.8204,"city":"Tiflis","author":"G.N","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Gldani-Nadzaladevi_(G.N._2012).jpg"},
+{"img":"fotograflar/96.jpg","lat":41.6913,"lon":44.8128,"city":"Tiflis","author":"franek2","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Dzveli_Tbilisi,_Tbilisi,_Georgia_-_panoramio_(25).jpg"},
+{"img":"fotograflar/97.jpg","lat":41.685,"lon":44.8215,"city":"Tiflis","author":"Daibo Taku","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Dzveli_Tbilisi,_Tbilisi,_Georgia_-_panoramio_(55).jpg"},
+{"img":"fotograflar/98.jpg","lat":41.6936,"lon":44.8112,"city":"Tiflis","author":"Daibo Taku","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Dzveli_Tbilisi,_Tbilisi,_Georgia_-_panoramio_(66).jpg"},
+{"img":"fotograflar/99.jpg","lat":40.3381,"lon":49.8343,"city":"Bakü","author":"Interfase","lic":"Public domain","page":"https://commons.wikimedia.org/wiki/File:Street_in_Bayil_settlement_in_Baku.jpg"},
+{"img":"fotograflar/100.jpg","lat":40.3836,"lon":49.8328,"city":"Bakü","author":"M. PINARCI","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:The_Dude_-_panoramio.jpg"},
+{"img":"fotograflar/101.jpg","lat":40.4148,"lon":49.8916,"city":"Bakü","author":"M. PINARCI","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bir_%C3%87ay_Birazda_Dostuk_-_panoramio.jpg"},
+{"img":"fotograflar/102.jpg","lat":35.6916,"lon":51.4467,"city":"Tahran","author":"ninara","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Ashura,_Tehran_-_15687803096.jpg"},
+{"img":"fotograflar/103.jpg","lat":35.7348,"lon":51.4099,"city":"Tahran","author":"Behrooz Rezvani","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Ceramics_on_the_Wall_-_panoramio.jpg"},
+{"img":"fotograflar/104.jpg","lat":4.671,"lon":-74.0476,"city":"Bogota","author":"md. childress","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Bogota,_chapinero_-_panoramio.jpg"},
+{"img":"fotograflar/105.jpg","lat":45.4625,"lon":-73.5805,"city":"Montreal","author":"Jeangagnon","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Cote_Saint-Paul.JPG"},
+{"img":"fotograflar/106.jpg","lat":45.5395,"lon":-73.6073,"city":"Montreal","author":"Benoit Rochon","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Jaroslav_Hal%C3%A1k_stop_sign.jpg"},
+{"img":"fotograflar/107.jpg","lat":45.45,"lon":-73.7917,"city":"Montreal","author":"Jeangagnon","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Donegani_-_Baie-de-Valois.jpg"},
+{"img":"fotograflar/108.jpg","lat":45.4524,"lon":-73.7369,"city":"Montreal","author":"Jeangagnon","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Avenue_Michel-Jasmin_-_avenue_Marshall.jpg"},
+{"img":"fotograflar/109.jpg","lat":41.8781,"lon":-87.6298,"city":"Chicago","author":"Mohamed Hayibor","lic":"CC0","page":"https://commons.wikimedia.org/wiki/File:Chicago_S_Rich_Neighborhood_(157774065).jpeg"},
+{"img":"fotograflar/110.jpg","lat":41.8806,"lon":-87.6203,"city":"Chicago","author":"Lin Li","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Chicago_Fall_(127351833).jpeg"},
+{"img":"fotograflar/111.jpg","lat":41.8857,"lon":-87.6311,"city":"Chicago","author":"Francisco Antunes from Manchester, United Kingdom","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Chicago,_USA_(12508408024).jpg"},
+{"img":"fotograflar/112.jpg","lat":53.3533,"lon":-6.2869,"city":"Dublin","author":"William Murphy","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Aughrim_Lane_-_Stoneybatter_Area_Of_Dublin_-_panoramio.jpg"},
+{"img":"fotograflar/113.jpg","lat":53.3473,"lon":-6.2823,"city":"Dublin","author":"William Murphy","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Benburb_Street_-_Dublin_7_-_panoramio.jpg"},
+{"img":"fotograflar/114.jpg","lat":50.0597,"lon":19.9455,"city":"Krakov","author":"Zygmunt Put Zetpe0202","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Librowszczyzna_street,_view_from_N,_Krak%C3%B3w,_Poland.jpg"},
+{"img":"fotograflar/115.jpg","lat":47.5047,"lon":19.03,"city":"Budapeşte","author":"Mike is Michi","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Buda_Castle_Quarter_street_with_the_Mary_Magdalene_Tower_Budapest_2026.JPG"},
+{"img":"fotograflar/116.jpg","lat":43.7624,"lon":11.264,"city":"Floransa","author":"Txllxt TxllxT","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Firenze_-_Florence_-_Viale_Guiseppe_Poggi_-_View_NW_towards_Palazzo_Vecchio_%26_Il_Duomo.jpg"},
+{"img":"fotograflar/117.jpg","lat":43.7632,"lon":11.2545,"city":"Floransa","author":"Txllxt TxllxT","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Firenze_-_Florence_-_Via_del_Forte_di_San_Giorgio_-_View_East.jpg"},
+{"img":"fotograflar/118.jpg","lat":37.3884,"lon":-5.995,"city":"Sevilla","author":"Vanbasten 23","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Parada_de_Plaza_Nueva.jpg"},
+{"img":"fotograflar/119.jpg","lat":37.4031,"lon":-5.9875,"city":"Sevilla","author":"Chabe01","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Calle_Parlamento_Andaluc%C3%ADa_-_S%C3%A9ville_(ES61)_-_2023-04-24_-_1.jpg"},
+{"img":"fotograflar/120.jpg","lat":37.3912,"lon":-5.9971,"city":"Sevilla","author":"Chabe01","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Calle_Murillo_-_S%C3%A9ville_(ES61)_-_2023-04-26_-_1.jpg"},
+{"img":"fotograflar/121.jpg","lat":41.1443,"lon":-8.6106,"city":"Porto","author":"Skye Haynes from Basingstoke, United Kingdom","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:STCP_LG-71-19_(55207028995).jpg"},
+{"img":"fotograflar/122.jpg","lat":60.1803,"lon":24.9273,"city":"Helsinki","author":"Ralf Roletschek (talk)","lic":"GFDL 1.2","page":"https://commons.wikimedia.org/wiki/File:2009-09-19-helsinki-by-RalfR-059.jpg"},
+{"img":"fotograflar/123.jpg","lat":60.1998,"lon":25.1204,"city":"Helsinki","author":"Ralf Roletschek","lic":"GFDL 1.2","page":"https://commons.wikimedia.org/wiki/File:14-08-13-helsinki-RalfR-N3S_1226-001.jpg"},
+{"img":"fotograflar/124.jpg","lat":60.2637,"lon":25.0374,"city":"Helsinki","author":"Htm","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Fallkulla_view_2016_8.jpg"},
+{"img":"fotograflar/125.jpg","lat":56.951,"lon":24.1052,"city":"Riga","author":"Kristof Zerbe","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Riga_Bench_(82409091).jpeg"},
+{"img":"fotograflar/126.jpg","lat":54.7337,"lon":25.2788,"city":"Vilnius","author":"Aleksandrs Timofejev…","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Baltupiai,_Vilnius,_Lithuania_-_panoramio.jpg"},
+{"img":"fotograflar/127.jpg","lat":52.1661,"lon":21.085,"city":"Varşova","author":"Roman Eugeniusz","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Wilan%C3%B3w_Kr%C3%B3lewski,_Warszawa,_Poland_-_panoramio_-_Roman_Eugeniusz_(10).jpg"},
+{"img":"fotograflar/128.jpg","lat":42.6813,"lon":23.3623,"city":"Sofya","author":"zonemars","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Geo_Milev_-_panoramio.jpg"},
+{"img":"fotograflar/129.jpg","lat":42.6837,"lon":23.3613,"city":"Sofya","author":"zonemars","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Geo_Milev_str._-_panoramio.jpg"},
+{"img":"fotograflar/130.jpg","lat":42.6901,"lon":23.3456,"city":"Sofya","author":"zonemars","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Khan_Omurtag_str._-_panoramio.jpg"},
+{"img":"fotograflar/131.jpg","lat":42.6959,"lon":23.3108,"city":"Sofya","author":"Jorge Díaz from Berlin, Germany","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Sofia_2008_(4610401293).jpg"},
+{"img":"fotograflar/132.jpg","lat":44.8156,"lon":20.4504,"city":"Belgrad","author":"AwOiSoAk KaOsIoWa","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Belgrade_-_panoramio_(2).jpg"},
+{"img":"fotograflar/133.jpg","lat":44.8174,"lon":20.4575,"city":"Belgrad","author":"Jorge Láscar from Melbourne, Australia","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Belgrade_(13809221394).jpg"},
+{"img":"fotograflar/134.jpg","lat":42.6414,"lon":18.1093,"city":"Dubrovnik","author":"donald judge","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:29.12.16_Dubrovnik_Old_City_Walls_011_(31959967295).jpg"},
+{"img":"fotograflar/135.jpg","lat":42.6414,"lon":18.1093,"city":"Dubrovnik","author":"donald judge","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:29.12.16_Dubrovnik_Old_City_Walls_010_(31812163282).jpg"},
+{"img":"fotograflar/136.jpg","lat":35.8989,"lon":14.5155,"city":"Valletta","author":"Txllxt TxllxT","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Malta_-_Valletta_-_Merchant%27s_Street_-_At_St._Christopher%27s_Street.jpg"},
+{"img":"fotograflar/137.jpg","lat":35.8995,"lon":14.5166,"city":"Valletta","author":"Txllxt TxllxT","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Malta_-_Valletta_-_Merchant%27s_Street_-_At_St._Nicholas_Street.jpg"},
+{"img":"fotograflar/138.jpg","lat":35.9019,"lon":14.5174,"city":"Valletta","author":"Txllxt TxllxT","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Malta_-_Valletta_-_St._Elmo_Place_01.jpg"},
+{"img":"fotograflar/139.jpg","lat":36.7905,"lon":10.1713,"city":"Tunus","author":"Touzrimounir","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Coll%C3%A8ge_Alaoui_17.jpg"},
+{"img":"fotograflar/140.jpg","lat":36.7769,"lon":10.1895,"city":"Tunus","author":"Sami Mlouhi","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Bellevue_photo2_%D8%A8%D8%A7%D9%84%D9%81%D9%8A.jpg"},
+{"img":"fotograflar/141.jpg","lat":33.5862,"lon":-7.6291,"city":"Kazablanka","author":"Radosław Botev","lic":"Attribution","page":"https://commons.wikimedia.org/wiki/File:Casablanca_street.jpg"},
+{"img":"fotograflar/142.jpg","lat":33.5923,"lon":-7.6189,"city":"Kazablanka","author":"Radosław Botev","lic":"Attribution","page":"https://commons.wikimedia.org/wiki/File:Blvd_Hassan_II_Casablanca.jpg"},
+{"img":"fotograflar/143.jpg","lat":33.5922,"lon":-7.6163,"city":"Kazablanka","author":"Abdul-Jawad Elhusuni","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Avenue_de_Paris_Casablanca.JPG"},
+{"img":"fotograflar/144.jpg","lat":33.597,"lon":-7.6706,"city":"Kazablanka","author":"Patrick Nouhailler's…","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Casablanca_-_panoramio_(5).jpg"},
+{"img":"fotograflar/145.jpg","lat":9.0306,"lon":38.7514,"city":"Addis Ababa","author":"by Giustino","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Addis_Abeba,_Ethiopia.jpg"},
+{"img":"fotograflar/146.jpg","lat":9.03,"lon":38.74,"city":"Addis Ababa","author":"Ye Efrem","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Bella_sefer_photo.jpg"},
+{"img":"fotograflar/147.jpg","lat":9.0171,"lon":38.7517,"city":"Addis Ababa","author":"z-pinch","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:1983_-_panoramio_-_z-pinch_(1).jpg"},
+{"img":"fotograflar/148.jpg","lat":-6.8087,"lon":39.2962,"city":"Darüsselam","author":"Xiaotong Gao","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Kivukoni,_Dar_es_Salaam,_Tanzania_-_panoramio_(3).jpg"},
+{"img":"fotograflar/149.jpg","lat":-6.8145,"lon":39.2945,"city":"Darüsselam","author":"Halidtz","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Shaaban_Robert_Street,_Kivukoni_ward,_Ilala_District.jpg"},
+{"img":"fotograflar/150.jpg","lat":-6.7779,"lon":39.2504,"city":"Darüsselam","author":"Mangapwani","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Bagamoyo_Road_2,_Mwananyamala,_Kinondoni_District,_Dar_es_Salaam.jpg"},
+{"img":"fotograflar/151.jpg","lat":-37.82,"lon":144.962,"city":"Melbourne","author":"Johntorcasio","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Bannana_Alley_Vaults.jpg"},
+{"img":"fotograflar/152.jpg","lat":-37.9902,"lon":145.2012,"city":"Melbourne","author":"Dragan Jankovic Faza…","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Grendas-Draganova_firma_-_panoramio.jpg"},
+{"img":"fotograflar/153.jpg","lat":-37.7863,"lon":144.9318,"city":"Melbourne","author":"malinhett","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Flemington_VIC_3031,_Australia_-_panoramio.jpg"},
+{"img":"fotograflar/154.jpg","lat":14.5989,"lon":120.9688,"city":"Manila","author":"Ralff Nestor Nacor","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:San_Nicolas_St.,_San_Nicolas,_Manila,_Oct_2025.jpg"},
+{"img":"fotograflar/155.jpg","lat":14.5977,"lon":120.9702,"city":"Manila","author":"Ralff Nestor Nacor","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Madrid_St.,_San_Nicolas,_Manila,_Oct_2025.jpg"},
+{"img":"fotograflar/156.jpg","lat":14.5968,"lon":120.9705,"city":"Manila","author":"Ralff Nestor Nacor","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Arch_of_Solidarity,_San_Nicolas,_Manila,_Oct_2025_(1).jpg"},
+{"img":"fotograflar/157.jpg","lat":-6.1871,"lon":106.8365,"city":"Cakarta","author":"Mokhammad Misdianto","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:A_view_to_Jalan_A.A._Kali_Pasir,_Cikini,_Menteng,_Central_Jakarta,_Indonesia_-_panoramio.jpg"},
+{"img":"fotograflar/158.jpg","lat":3.1643,"lon":101.6853,"city":"Kuala Lumpur","author":"Andy Mitchell from Glasgow, UK","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Kuala_Lumpur_(4448473446).jpg"},
+{"img":"fotograflar/159.jpg","lat":3.162,"lon":101.7125,"city":"Kuala Lumpur","author":"Daibo Taku","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Kampung_Baru,_Kuala_Lumpur,_Federal_Territory_of_Kuala_Lumpur,_Malaysia_-_panoramio_(2).jpg"},
+{"img":"fotograflar/160.jpg","lat":3.1653,"lon":101.6483,"city":"Kuala Lumpur","author":"Jerry Lim","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Jalan_Sri_Hartamas_-_panoramio.jpg"},
+{"img":"fotograflar/161.jpg","lat":25.0381,"lon":121.5274,"city":"Taipei","author":"Lord Koxinga","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:2010_07_22780_7061_Zhongzheng_District,_Taipei,_Streets_in_Taipwi,_Taiwan.JPG"},
+{"img":"fotograflar/162.jpg","lat":25.0381,"lon":121.5266,"city":"Taipei","author":"Lord Koxinga","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:2010_07_22790_7063_Zhongzheng_District,_Streets_in_Taipei,_Taiwan.JPG"},
+{"img":"fotograflar/163.jpg","lat":25.0355,"lon":121.5681,"city":"Taipei","author":"Yogirayogira","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:2015_Taipei.jpg"},
+{"img":"fotograflar/164.jpg","lat":25.0514,"lon":121.5234,"city":"Taipei","author":"Bernard McManus","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:2010-12-28_Tianjin_Street_in_Taipei.jpg"},
+{"img":"fotograflar/165.jpg","lat":10.7935,"lon":106.6968,"city":"Ho Chi Minh","author":"U.S. Department of State from United States","lic":"Public domain","page":"https://commons.wikimedia.org/wiki/File:A_Vietnamese_Woman_Flashes_a_Peace_Sign_at_Secretary_Kerry_as_He_Walks_Through_the_Streets_of_Ho_Chi_Minh_City_(27200985191).jpg"},
+{"img":"fotograflar/166.jpg","lat":10.7913,"lon":106.6821,"city":"Ho Chi Minh","author":"trungydang","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Duong_hoang_sa._quan_phu_nhuan_._HCM_-_panoramio.jpg"},
+{"img":"fotograflar/167.jpg","lat":10.7611,"lon":106.6608,"city":"Ho Chi Minh","author":"trungydang","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Chung_cu_tren_duong_Ly_thuong_kiet_q5_saigon_-_panoramio.jpg"},
+{"img":"fotograflar/168.jpg","lat":11.5695,"lon":104.9214,"city":"Phnom Penh","author":"McKay Savage from London, UK","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Cambodia_08_-_026_-_how_to_get_around_(3199511202).jpg"},
+{"img":"fotograflar/169.jpg","lat":11.5684,"lon":104.919,"city":"Phnom Penh","author":"PIERRE ANDRE LECLERCQ","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Phnom_Penh.-_Panorama_vu_de_Diamond_Hotel_(2).jpg"},
+{"img":"fotograflar/170.jpg","lat":11.5684,"lon":104.919,"city":"Phnom Penh","author":"Pierre André","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Phnom_Penh.-_Panorama_vu_de_Diamond_Hotel_en2014_(12).jpg"},
+{"img":"fotograflar/171.jpg","lat":16.7981,"lon":96.1523,"city":"Yangon","author":"Francisco Anzola","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Burmese_village_(8436577025).jpg"},
+{"img":"fotograflar/172.jpg","lat":16.7981,"lon":96.1523,"city":"Yangon","author":"Francisco Anzola","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Crosswalk_(8437656972).jpg"},
+{"img":"fotograflar/173.jpg","lat":16.7762,"lon":96.171,"city":"Yangon","author":"mohigan","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:1st_Street,_Yangon,_Myanmar_(Burma)_-_panoramio.jpg"},
+{"img":"fotograflar/174.jpg","lat":16.7768,"lon":96.162,"city":"Yangon","author":"mohigan","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:4th_Ward,_Yangon,_Myanmar_(Burma)_-_panoramio_(3).jpg"},
+{"img":"fotograflar/175.jpg","lat":6.9337,"lon":79.8467,"city":"Kolombo","author":"BriYYZ from Toronto, Canada","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Colombo_(2965974060).jpg"},
+{"img":"fotograflar/176.jpg","lat":6.8677,"lon":79.8752,"city":"Kolombo","author":"Nalin priyankara","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Jayasamagi_Mawatha_-_panoramio_(1).jpg"},
+{"img":"fotograflar/177.jpg","lat":6.9094,"lon":79.8706,"city":"Kolombo","author":"Daibo Taku","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Kurunduwatta,_Colombo,_Sri_Lanka_-_panoramio_(1).jpg"},
+{"img":"fotograflar/178.jpg","lat":6.909,"lon":79.8659,"city":"Kolombo","author":"Daibo Taku","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Kurunduwatta,_Colombo,_Sri_Lanka_-_panoramio_(3).jpg"},
+{"img":"fotograflar/179.jpg","lat":23.7655,"lon":90.4384,"city":"Dakka","author":"Salim_Khandoker","lic":"CC0","page":"https://commons.wikimedia.org/wiki/File:Aftab_Nagar,_Dhaka_.jpg"},
+{"img":"fotograflar/180.jpg","lat":23.7457,"lon":90.3951,"city":"Dakka","author":"Salim_Khandoker","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Link_road,_from_Bangla_Motor_towards_Sonargaon_Road,_Dhaka_2.jpeg"},
+{"img":"fotograflar/181.jpg","lat":23.7371,"lon":90.4103,"city":"Dakka","author":"Hasan Iqbal from Stockholm, Sweden","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Evening_Rush_(8888384461).jpg"},
+{"img":"fotograflar/182.jpg","lat":23.7275,"lon":90.4191,"city":"Dakka","author":"Dead.rabbit","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:A_street_in_Motijheel.jpg"},
+{"img":"fotograflar/183.jpg","lat":24.8598,"lon":67.054,"city":"Karaçi","author":"کراچی","lic":"CC BY-SA 2.0","page":"https://commons.wikimedia.org/wiki/File:Karachi-Shahrah-e-Faisal_boulevard.jpg"},
+{"img":"fotograflar/184.jpg","lat":24.8572,"lon":67.0095,"city":"Karaçi","author":"Haddid Uddin","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Thattai_compound_M.A_JINNAH_ROAD_karachi_pakistan_haddid_uddin_-_panoramio.jpg"},
+{"img":"fotograflar/185.jpg","lat":24.8786,"lon":67.2059,"city":"Karaçi","author":"shoaibkb","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:BAKRA_PERI_ROAD_(_SAHEED_ABDULLA_MURAD_ROAD)_-_panoramio.jpg"},
+{"img":"fotograflar/186.jpg","lat":24.9641,"lon":67.067,"city":"Karaçi","author":"Anwar Ahmed","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Nagan_Chorangi_1_-_panoramio.jpg"},
+{"img":"fotograflar/187.jpg","lat":41.2974,"lon":69.3452,"city":"Taşkent","author":"Olimidono","lic":"CC0","page":"https://commons.wikimedia.org/wiki/File:2-son_klinika.jpg"},
+{"img":"fotograflar/188.jpg","lat":41.2996,"lon":69.3473,"city":"Taşkent","author":"Olimidono","lic":"CC0","page":"https://commons.wikimedia.org/wiki/File:Parkent_ko%CA%BBchasi_(Toshkent)_8.jpg"},
+{"img":"fotograflar/189.jpg","lat":41.2998,"lon":69.2104,"city":"Taşkent","author":"WWELNUR","lic":"CC BY 4.0","page":"https://commons.wikimedia.org/wiki/File:Aktepa_Square.jpg"},
+{"img":"fotograflar/190.jpg","lat":43.167,"lon":76.9217,"city":"Almatı","author":"MEGAHERZ","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:%D0%90%D0%BB%D0%BC%D0%B0%D1%82%D1%8B_-_panoramio_(6).jpg"},
+{"img":"fotograflar/191.jpg","lat":43.2189,"lon":76.9023,"city":"Almatı","author":"Alexandru Panoiu from Bucharest, Romania","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Warning_Sign_%22Children%22_in_Almaty_(AP4M2410_1PSP)_(20600317419).jpg"},
+{"img":"fotograflar/192.jpg","lat":47.9134,"lon":106.9121,"city":"Ulan Batur","author":"Francisco Anzola","lic":"CC BY 2.0","page":"https://commons.wikimedia.org/wiki/File:Rubbish_pile_(6228082095).jpg"},
+{"img":"fotograflar/193.jpg","lat":47.9165,"lon":106.916,"city":"Ulan Batur","author":"Marcin Konsek","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Ulica_w_centrum_U%C5%82an_Bator_02.JPG"},
+{"img":"fotograflar/194.jpg","lat":47.9162,"lon":106.9159,"city":"Ulan Batur","author":"Marcin Konsek","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Ulica_w_centrum_U%C5%82an_Bator_01.JPG"},
+{"img":"fotograflar/195.jpg","lat":47.8565,"lon":106.7821,"city":"Ulan Batur","author":"Römert","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:City_Highway_in_Ulan_Bator.JPG"},
+{"img":"fotograflar/196.jpg","lat":49.2616,"lon":-123.095,"city":"Vancouver","author":"Dracunculus","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Guelph_10th_01_-_panoramio.jpg"},
+{"img":"fotograflar/197.jpg","lat":49.28,"lon":-123.136,"city":"Vancouver","author":"Larry LaRose","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Bute_Street_near_Pacific_Avenue_-_panoramio.jpg"},
+{"img":"fotograflar/198.jpg","lat":34.0374,"lon":-118.2531,"city":"Los Angeles","author":"Downtowngal","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:945_S._Wall_Street,_Los_Angeles.jpg"},
+{"img":"fotograflar/199.jpg","lat":34.0448,"lon":-118.246,"city":"Los Angeles","author":"Downtowngal","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:416_S._Wall_Street,_Los_Angeles.jpg"},
+{"img":"fotograflar/200.jpg","lat":34.0564,"lon":-117.1814,"city":"Los Angeles","author":"Jordan W.","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Caprice_Cafe_-_panoramio.jpg"},
+{"img":"fotograflar/201.jpg","lat":34.1576,"lon":-118.4662,"city":"Los Angeles","author":"Clotee Pridgen Alloc…","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Camarillo-Sepulveda_Blvd._-_panoramio.jpg"},
+{"img":"fotograflar/202.jpg","lat":-0.1796,"lon":-78.4799,"city":"Quito","author":"Ciencia1.com","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Avenida_Rep%C3%BAblica_de_El_Salvador_-_panoramio.jpg"},
+{"img":"fotograflar/203.jpg","lat":-0.1762,"lon":-78.4796,"city":"Quito","author":"Ciencia1.com","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Avenida_NNUU_y_Rep%C3%BAblica_de_El_Salvador_-_panoramio.jpg"},
+{"img":"fotograflar/204.jpg","lat":-16.4932,"lon":-68.1381,"city":"La Paz","author":"Issagahan","lic":"CC BY-SA 4.0","page":"https://commons.wikimedia.org/wiki/File:Museo_Tambo_Quirquincho_calle_Evaristo_Valle.jpg"},
+{"img":"fotograflar/205.jpg","lat":-34.9105,"lon":-56.1897,"city":"Montevideo","author":"bullit","lic":"CC BY 3.0","page":"https://commons.wikimedia.org/wiki/File:Montevideo_-_Uruguay_-_panoramio.jpg"},
+{"img":"fotograflar/206.jpg","lat":-34.9073,"lon":-56.1853,"city":"Montevideo","author":"Andrés Franchi Ugart…","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Calle_Santiago_de_Chile_esquina_Soriano_-_panoramio.jpg"},
+{"img":"fotograflar/207.jpg","lat":-34.9012,"lon":-56.1918,"city":"Montevideo","author":"Andrés Franchi Ugart…","lic":"CC BY-SA 3.0","page":"https://commons.wikimedia.org/wiki/File:Calle_Cerro_Largo_esquina_Libertador_-_panoramio_(1).jpg"}];
+const ROUNDS = 5, MAXP = 5000;
+const { $, store, toast } = T;
+T.kur({
+  ad: "Neredeyim",
+  modDegisti: m => start(m, true),
+  yeni: () => start("practice", true), yeniEtiket: "Yeni oyun",
+  yardim: `<p>Fotoğraf dünyanın neresinde çekildi? Haritada tahmininizi işaretleyin.</p>
+    <ul><li>Her oyun <b>5 tur</b>dur. Gerçek konuma ne kadar yakınsanız o kadar puan alırsınız: tur başına en fazla <b>5.000</b>.</li>
+    <li>Haritayı sürükleyin, + ve − ile yakınlaştırın. Fotoğrafa dokunursanız büyür.</li>
+    <li>Tabelalar, araçların hangi şeritten gittiği, mimari ve bitki örtüsü iyi ipuçlarıdır.</li></ul>
+    <div class="hr"></div><p class="note">Fotoğraflar Wikimedia Commons'tan, sahiplerinin seçtiği Creative Commons lisanslarıyla kullanılmıştır; yazar ve lisans her fotoğrafın altında yazar.</p>`
+});
+
+let stats = store.get("neredeyim-stats", { played: 0, total: 0, best: 0, streak: 0, lastDay: null, perfect: 0 });
+let mode, day, picks, round, results, guess, revealed;
+
+/* ---------- Harita ---------- */
+const cv = $("#cv"), ctx = cv.getContext("2d");
+const FEAT = G.U.map(c => {
+  let f = { type: "Feature", geometry: { type: "MultiPolygon", coordinates: c.g.map(r => [r]) } };
+  if (d3.geoArea(f) > 2 * Math.PI) f.geometry.coordinates = c.g.map(r => [r.slice().reverse()]);
+  return f;
+});
+const proj = d3.geoNaturalEarth1(), path = d3.geoPath(proj, ctx);
+let W = 0, H = 0, k = 1, tx = 0, ty = 0, base = null;
+function resize() {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  proj.fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
+  base = { s: proj.scale(), t: proj.translate() };
+  apply(); draw();
+}
+function apply() { proj.scale(base.s * k).translate([base.t[0] * k + tx, base.t[1] * k + ty]); }
+// harita kenarları görünür alanın dışına fazla taşmasın (sol kenar ≈ tx, sağ kenar ≈ tx + W·k)
+function clampPan() {
+  const m = 40;
+  tx = Math.max(W - W * k - m, Math.min(m, tx));
+  ty = Math.max(H - H * k - m, Math.min(m, ty));
+}
+// imlecin altındaki nokta yerinde kalacak şekilde yakınlaştır
+function zoomAt(f, cx = W / 2, cy = H / 2) {
+  const p = proj.invert([cx, cy]);
+  k = Math.max(1, Math.min(40, k * f));
+  apply();
+  const q = proj(p);
+  tx += cx - q[0]; ty += cy - q[1];
+  clampPan(); apply(); draw();
+}
+function pin(x, y, color) {
+  ctx.beginPath(); ctx.arc(x, y, 7, 0, 2 * Math.PI); ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = "#fff"; ctx.stroke();
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.beginPath(); path({ type: "Sphere" }); ctx.fillStyle = "#dfeaf2"; ctx.fill();
+  ctx.beginPath(); path(d3.geoGraticule10()); ctx.strokeStyle = "rgba(47,74,99,.07)"; ctx.lineWidth = 1; ctx.stroke();
+  ctx.beginPath(); FEAT.forEach(f => path(f)); ctx.fillStyle = "#f6f3ea"; ctx.fill();
+  ctx.strokeStyle = "rgba(120,110,90,.45)"; ctx.lineWidth = .6; ctx.stroke();
+  const P = PHOTOS[picks[round]];
+  if (revealed) {
+    const a = proj([guess[1], guess[0]]), b = proj([P.lon, P.lat]);
+    ctx.beginPath(); path({ type: "LineString", coordinates: [[guess[1], guess[0]], [P.lon, P.lat]] });
+    ctx.setLineDash([5, 5]); ctx.strokeStyle = "#3a3f47"; ctx.lineWidth = 1.6; ctx.stroke(); ctx.setLineDash([]);
+    pin(b[0], b[1], "#6aa780");
+    pin(a[0], a[1], "#d9654b");
+  } else if (guess) {
+    const a = proj([guess[1], guess[0]]); pin(a[0], a[1], "#d9654b");
+  }
+}
+let drag = null;
+cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, tx, ty, moved: false }; });
+cv.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+  drag.moved = true; tx = drag.tx + dx; ty = drag.ty + dy; clampPan(); apply(); draw();
+});
+cv.addEventListener("pointerup", e => {
+  const d = drag; drag = null;
+  if (!d || d.moved || revealed || isOver()) return;
+  const r = cv.getBoundingClientRect(), ll = proj.invert([e.clientX - r.left, e.clientY - r.top]);
+  if (!ll || !isFinite(ll[0]) || Math.abs(ll[1]) > 90) return;
+  guess = [ll[1], ll[0]];
+  $("#goBtn").disabled = false;
+  draw();
+});
+cv.addEventListener("wheel", e => { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(e.deltaY < 0 ? 1.25 : .8, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+$("#zin").onclick = () => zoomAt(1.6);
+$("#zout").onclick = () => zoomAt(1 / 1.6);
+addEventListener("resize", resize);
+
+/* ---------- Tur akışı ---------- */
+const isOver = () => results.length >= ROUNDS;
+const points = km => Math.round(MAXP * Math.exp(-km / 2000));
+function showPhoto() {
+  const P = PHOTOS[picks[Math.min(round, ROUNDS - 1)]];
+  const img = $("#img");
+  img.classList.add("load");
+  img.onload = () => img.classList.remove("load");
+  img.src = P.img;
+  $("#credit").innerHTML = `Fotoğraf: ${P.author || "Wikimedia Commons"} · ${P.lic} · <a href="${P.page}" target="_blank" rel="noopener">Commons</a>`;
+}
+function render() {
+  $("#rounds").innerHTML = Array.from({ length: ROUNDS }, (_, i) => `<i class="${i < results.length ? "done" : i === round ? "cur" : ""}"></i>`).join("");
+  $("#score").textContent = results.reduce((s, r) => s + r.p, 0).toLocaleString("tr-TR");
+  const res = $("#res"), go = $("#goBtn");
+  if (revealed) {
+    const r = results[results.length - 1], P = PHOTOS[picks[round]];
+    res.hidden = false;
+    res.innerHTML = `<div><small>${r.km.toLocaleString("tr-TR")} km uzaktaydınız</small><b>${P.city}</b></div><div style="text-align:right"><small>Bu tur</small><b>+${r.p.toLocaleString("tr-TR")}</b></div>`;
+    go.disabled = false; go.textContent = isOver() ? "Sonuçları gör" : "Sonraki tur";
+  } else {
+    res.hidden = true;
+    go.textContent = "Tahmin et"; go.disabled = !guess;
+  }
+  draw();
+}
+$("#goBtn").onclick = () => {
+  if (revealed) {
+    if (isOver()) return T.open("stats");
+    round++; guess = null; revealed = false; k = 1; tx = ty = 0; apply();
+    save(); showPhoto(); render();
+    return;
+  }
+  if (!guess) return;
+  const P = PHOTOS[picks[round]];
+  const km = G.km({ y: guess[0], x: guess[1] }, { y: P.lat, x: P.lon });
+  results.push({ km, p: points(km), g: guess });
+  revealed = true;
+  // haritayı iki noktayı gösterecek şekilde ortala
+  k = 1; tx = ty = 0; apply();
+  save(); render();
+  toast(km < 50 ? "Tam isabet!" : km < 500 ? "Çok yakın!" : km < 2000 ? "Fena değil" : "Uzaktaydınız");
+  if (isOver()) finish();
+};
+$("#photo").onclick = () => { $("#fullImg").src = $("#img").src; $("#full").classList.add("on"); };
+$("#full").onclick = () => $("#full").classList.remove("on");
+function finish() {
+  const total = results.reduce((s, r) => s + r.p, 0);
+  if (mode === "daily") {
+    stats.played++; stats.total += total; stats.best = Math.max(stats.best, total);
+    if (results.every(r => r.km < 500)) stats.perfect++;
+    T.seriGuncelle(stats, day, true);
+    store.set("neredeyim-stats", stats);
+  }
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1800);
+}
+function start(m, fresh = false) {
+  mode = m; day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(`neredeyim-${m}`, null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (s && s.picks.some(i => !PHOTOS[i])) s = null;
+  if (!s) {
+    const rand = m === "daily" ? T.rng(day * 4099 + 13) : Math.random;
+    // farklı şehirlerden 5 fotoğraf
+    const order = T.shuffle(PHOTOS.map((_, i) => i), rand), seen = new Set(), picks = [];
+    for (const i of order) { if (seen.has(PHOTOS[i].city)) continue; seen.add(PHOTOS[i].city); picks.push(i); if (picks.length === ROUNDS) break; }
+    s = { picks, round: 0, results: [], guess: null, revealed: false };
+  }
+  ({ picks, round, results, guess, revealed } = s);
+  save(); showPhoto(); render();
+  T.altSatir(m, day, ["Yeni oyun", () => start("practice", true)]);
+  T.aktifMod(m);
+}
+function save() { store.set(`neredeyim-${mode}`, { day, picks, round, results, guess, revealed }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => {
+  const total = results.reduce((s, r) => s + r.p, 0);
+  return `${isOver() ? `<div class="result"><div class="big">${total.toLocaleString("tr-TR")}</div><p>/ ${(ROUNDS * MAXP).toLocaleString("tr-TR")} puan</p></div>
+    <div style="margin-top:12px">${results.map((r, i) => `<div class="sumrow"><span>${i + 1}. ${PHOTOS[picks[i]].city} · ${r.km.toLocaleString("tr-TR")} km</span><span>+${r.p.toLocaleString("tr-TR")}</span></div>`).join("")}</div><h3>Genel</h3>` : ""}
+    ${T.sayilar([[stats.played, "Oynanan"], [stats.best.toLocaleString("tr-TR"), "En Yüksek"], [stats.played ? Math.round(stats.total / stats.played).toLocaleString("tr-TR") : "–", "Ortalama"], [T.seri(stats), "Seri"]])}
+    ${T.altBolum({ gunluk: mode === "daily", bitti: isOver() })}`;
+});
+T.paylasim(() => {
+  const total = results.reduce((s, r) => s + r.p, 0);
+  return `Neredeyim #${day + 1}: ${total.toLocaleString("tr-TR")} / 25.000 🌍\n${results.map(r => r.p >= 4500 ? "🟩" : r.p >= 2500 ? "🟨" : r.p >= 1000 ? "🟧" : "🟥").join("")}`;
+});
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily");
+resize();
+T.ilkZiyaret("neredeyim-seen");
+</script>
+</body>
+</html>

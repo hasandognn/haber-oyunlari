@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Şehir — Videodan Şehri Bul</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<style>
+main{gap:12px;max-width:640px}
+.hud{width:100%;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+.hud b{color:var(--ink);font-size:16px;font-variant-numeric:tabular-nums}
+.rounds{display:flex;gap:5px}
+.rounds i{width:26px;height:6px;border-radius:99px;background:var(--key)}
+.rounds i.ok{background:var(--ok)}
+.rounds i.no{background:var(--bad)}
+.rounds i.cur{background:var(--ink)}
+.video{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#111}
+.video iframe{position:absolute;left:-1px;top:-1px;width:calc(100% + 2px);height:calc(100% + 2px);border:0;pointer-events:none}
+/* başlık ve kanal adını gizleyen bant + tıklamayı engelleyen katman */
+.video .shield{position:absolute;inset:0;z-index:2}
+.video .top{position:absolute;left:0;right:0;top:0;height:22%;z-index:3;background:linear-gradient(#111 55%,rgba(17,17,17,0))}
+.video .bottom{position:absolute;left:0;right:0;bottom:0;height:14%;z-index:3;background:linear-gradient(rgba(17,17,17,0),#111 70%)}
+.video .wait{position:absolute;inset:0;z-index:4;display:grid;place-items:center;color:#fff;font-size:14px;background:#111;transition:opacity .6s}
+.video .wait.off{opacity:0;pointer-events:none}
+.opts4{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.o4{height:54px;border:1.5px solid var(--line-strong);border-radius:12px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background-color .25s,border-color .25s,color .25s,transform .12s}
+.o4:active{transform:scale(.97)}
+.o4 img{width:22px;height:16px;border-radius:2px;object-fit:cover;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.o4.right{background:var(--ok);border-color:var(--ok);color:#fff}
+.o4.wrong{background:var(--bad);border-color:var(--bad);color:#fff}
+.o4:disabled{cursor:default}
+.credit{font-size:11px;color:var(--muted);text-align:center}
+.credit a{color:inherit}
+.sumrow{display:flex;justify-content:space-between;padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px}
+.sumrow:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="hud"><div class="rounds" id="rounds"></div><span>Doğru <b id="score">0</b>/5</span></div>
+    <div class="video" id="video"><div class="shield"></div><div class="top"></div><div class="bottom"></div><div class="wait" id="wait">Video yükleniyor…</div></div>
+    <div class="opts4" id="opts4"></div>
+    <div class="credit" id="credit"></div>
+    <div class="actions"><button class="btn" id="nextBtn" hidden>Sonraki şehir</button></div>
+  </main>
+</div>
+
+<script src="ulkeler.js"></script>
+<script src="cografya.js"></script>
+<script src="temel.js"></script>
+<script>
+/* tr: Türkçe ad, en: İngilizce ad, cc: ülke, id: YouTube video kimliği, secs: video süresi, ch: kanal. Videolar YouTube'da yayınlanan yürüyüş turlarıdır; sitede gömülü oynatıcıyla gösterilir. */
+const CITIES = [{"tr":"İstanbul","en":"Istanbul","cc":"tr","id":"npTBK0VmhxI","ch":"HP Walking Tours","secs":10914},
+{"tr":"Paris","en":"Paris","cc":"fr","id":"6BPuGeS6O4w","ch":"HP Walking Tours","secs":6299},
+{"tr":"Tokyo","en":"Tokyo","cc":"jp","id":"28ZjrtD_iL0","ch":"World Wanderings: 4K Walking Tours","secs":12604},
+{"tr":"New York","en":"New York","cc":"us","id":"1aedKShR1rA","ch":"WALKS and the CITY","secs":14368},
+{"tr":"Londra","en":"London","cc":"gb","id":"JPyezs4sANU","ch":"Meri Walks in LONDON","secs":3918},
+{"tr":"Roma","en":"Rome","cc":"it","id":"cH1E97JIyUo","ch":"HP Walking Tours","secs":13013},
+{"tr":"Barselona","en":"Barcelona","cc":"es","id":"4OQ9_NPdr7Q","ch":"Ambient Explorers","secs":6941},
+{"tr":"Berlin","en":"Berlin","cc":"de","id":"1qitNAzhxQk","ch":"Walking OZ","secs":15297},
+{"tr":"Amsterdam","en":"Amsterdam","cc":"nl","id":"7Ttc3AaPNZs","ch":"PixelPulse Travels","secs":2695},
+{"tr":"Prag","en":"Prague","cc":"cz","id":"VZrcZLJ0HUM","ch":"HP Walking Tours","secs":13768},
+{"tr":"Viyana","en":"Vienna","cc":"at","id":"BajeD8jXv3Q","ch":"Lvfree Adventures","secs":7692},
+{"tr":"Lizbon","en":"Lisbon","cc":"pt","id":"aqevs6jLdJI","ch":"HP Walking Tours","secs":13987},
+{"tr":"Atina","en":"Athens","cc":"gr","id":"QVh0TuWyEYc","ch":"Prowalk Tours","secs":11524},
+{"tr":"Kahire","en":"Cairo","cc":"eg","id":"2mGAKmK2zTk","ch":"World Wanderings: 4K Walking Tours","secs":16228},
+{"tr":"Marakeş","en":"Marrakech","cc":"ma","id":"OvN1numZqqU","ch":"Luxury Travel Expert","secs":2072},
+{"tr":"Dubai","en":"Dubai","cc":"ae","id":"I9XB1gHvF74","ch":"HP Walking Tours","secs":12935},
+{"tr":"Mumbai","en":"Mumbai","cc":"in","id":"DFQO7Zn-KM4","ch":"LADmob","secs":11454},
+{"tr":"Bangkok","en":"Bangkok","cc":"th","id":"3CRJWy5zXvg","ch":"HP Walking Tours","secs":6166},
+{"tr":"Seul","en":"Seoul","cc":"kr","id":"unY9hqu9bEk","ch":"Walking OZ","secs":5688},
+{"tr":"Hong Kong","en":"Hong Kong","cc":"cn","id":"NLubGdhZRk8","ch":"Walking OZ","secs":9777},
+{"tr":"Singapur","en":"Singapore","cc":"sg","id":"3MFlpVe93XU","ch":"HP Walking Tours","secs":10873},
+{"tr":"Sidney","en":"Sydney","cc":"au","id":"_9g4OLdUkvU","ch":"HP Walking Tours","secs":11184},
+{"tr":"Rio de Janeiro","en":"Rio de Janeiro","cc":"br","id":"m4pT1j2-c-s","ch":"Prowalk Tours","secs":12885},
+{"tr":"Buenos Aires","en":"Buenos Aires","cc":"ar","id":"O_xXKUQVu2Q","ch":"BLA BLA WALKER 🐧 Tokyo Walking Tour","secs":7712},
+{"tr":"Meksiko","en":"Mexico City","cc":"mx","id":"fVh9YNTzhak","ch":"HP Walking Tours","secs":11414},
+{"tr":"Havana","en":"Havana","cc":"cu","id":"63ARQhtaUPs","ch":"Walking Tours","secs":3050},
+{"tr":"San Francisco","en":"San Francisco","cc":"us","id":"kQy6UV5IflY","ch":"Walking OZ","secs":6895},
+{"tr":"Toronto","en":"Toronto","cc":"ca","id":"yNun-Rs-OU4","ch":"World Wanderings: 4K Walking Tours","secs":10681},
+{"tr":"Kopenhag","en":"Copenhagen","cc":"dk","id":"AQqPG14QjJM","ch":"4K Urban Life","secs":9098},
+{"tr":"Stockholm","en":"Stockholm","cc":"se","id":"aFrbmw2I7fA","ch":"BookingHunterTV","secs":6173},
+{"tr":"Budapeşte","en":"Budapest","cc":"hu","id":"VvBy52kYmAQ","ch":"HP Walking Tours","secs":13392},
+{"tr":"Krakov","en":"Krakow","cc":"pl","id":"UjQOsnHAvvU","ch":"BookingHunterTV","secs":9089},
+{"tr":"Venedik","en":"Venice","cc":"it","id":"2BfHMnDOteA","ch":"Prowalk Tours","secs":14187},
+{"tr":"Kyoto","en":"Kyoto","cc":"jp","id":"arOQ7slh3pM","ch":"HP Walking Tours","secs":4302},
+{"tr":"Hanoi","en":"Hanoi","cc":"vn","id":"xId3cHWsta4","ch":"World Wanderings: 4K Walking Tours","secs":12877},
+{"tr":"Tiflis","en":"Tbilisi","cc":"ge","id":"-pAXbJVqbYA","ch":"World Wanderings: 4K Walking Tours","secs":5716},
+{"tr":"Kudüs","en":"Jerusalem","cc":"il","id":"g7VCU8nv2U0","ch":"ExploreTheWorld","secs":5650},
+{"tr":"Cape Town","en":"Cape Town","cc":"za","id":"BSxV9nUfDAU","ch":"Atmos Walks","secs":2606},
+{"tr":"Lima","en":"Lima","cc":"pe","id":"xOrmMjRcLeg","ch":"Wandering Pete","secs":8586},
+{"tr":"Edinburgh","en":"Edinburgh","cc":"gb","id":"cLYnYRv0kV0","ch":"Scotland's Wild","secs":3104}];
+const ROUNDS = 5;
+const { $, store, toast } = T;
+T.kur({
+  ad: "Şehir",
+  modDegisti: m => start(m, true),
+  yeni: () => start("practice", true), yeniEtiket: "Yeni oyun",
+  yardim: `<p>Sokak yürüyüşü videosundan <b>hangi şehirde</b> olduğunuzu bulun.</p>
+    <ul><li>Her oyun <b>5 şehir</b>dir; her birinde dört seçenekten birini seçin.</li>
+    <li>Tabelalara, araçlara, mimariye ve insanlara dikkat edin.</li>
+    <li>Video sessiz başlar; şehri ele vermesin diye başlık kısmı kapalıdır.</li></ul>
+    <div class="hr"></div><p class="note">Videolar YouTube'daki yürüyüş turu kanallarına aittir ve YouTube'un gömülü oynatıcısıyla gösterilir; kanal adı tur bitince görünür.</p>`
+});
+
+let stats = store.get("sehir-stats", { played: 0, correct: 0, perfect: 0, streak: 0, best: 0, lastDay: null });
+let mode, day, picks, opts, round, answers, starts;
+
+/* ---------- Video ---------- */
+function loadVideo() {
+  const c = CITIES[picks[round]];
+  const v = $("#video");
+  v.querySelector("iframe")?.remove();
+  $("#wait").classList.remove("off");
+  const f = document.createElement("iframe");
+  const start = starts[round];
+  f.src = `https://www.youtube-nocookie.com/embed/${c.id}?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3&cc_load_policy=0&start=${start}&end=${start + 300}`;
+  f.allow = "autoplay; encrypted-media; picture-in-picture";
+  f.title = "Şehir videosu";
+  f.onload = () => setTimeout(() => $("#wait").classList.add("off"), 2500);   // başlık kaybolana kadar bekle
+  v.prepend(f);
+}
+
+/* ---------- Render ---------- */
+function render() {
+  const done = answers.length > round;
+  $("#rounds").innerHTML = Array.from({ length: ROUNDS }, (_, i) => `<i class="${i < answers.length ? (answers[i] === picks[i] ? "ok" : "no") : i === round ? "cur" : ""}"></i>`).join("");
+  $("#score").textContent = answers.filter((a, i) => a === picks[i]).length;
+  $("#opts4").innerHTML = opts[round].map(i => {
+    const c = CITIES[i];
+    const cls = done ? (i === picks[round] ? "right" : i === answers[round] ? "wrong" : "") : "";
+    return `<button class="o4 ${cls}" data-i="${i}" ${done ? "disabled" : ""}><img src="bayraklar/${c.cc}.svg" alt="">${c.tr}</button>`;
+  }).join("");
+  const c = CITIES[picks[round]];
+  $("#credit").innerHTML = done ? `Video: <a href="https://www.youtube.com/watch?v=${c.id}" target="_blank" rel="noopener">${c.ch}</a> · YouTube` : "";
+  const nb = $("#nextBtn");
+  nb.hidden = !done;
+  nb.textContent = answers.length >= ROUNDS ? "Sonuçları gör" : "Sonraki şehir";
+}
+$("#opts4").addEventListener("click", e => {
+  const b = e.target.closest(".o4");
+  if (!b || answers.length > round) return;
+  const i = +b.dataset.i;
+  answers.push(i);
+  toast(i === picks[round] ? "Doğru!" : `Cevap: ${CITIES[picks[round]].tr}`);
+  save(); render();
+  if (answers.length >= ROUNDS) finish();
+});
+$("#nextBtn").onclick = () => {
+  if (answers.length >= ROUNDS) return T.open("stats");
+  round++; save(); loadVideo(); render();
+};
+function finish() {
+  const n = answers.filter((a, i) => a === picks[i]).length;
+  if (mode === "daily") {
+    stats.played++; stats.correct += n; if (n === ROUNDS) stats.perfect++;
+    T.seriGuncelle(stats, day, true);
+    store.set("sehir-stats", stats);
+  }
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1800);
+}
+
+/* ---------- Oyun ---------- */
+function makeOptions(target, rand) {
+  // yanlış seçeneklerin ikisi mümkünse aynı kıtadan olsun
+  const cont = G.byK.get(CITIES[target].cc)?.t;
+  const same = T.shuffle(CITIES.map((_, i) => i).filter(i => i !== target && G.byK.get(CITIES[i].cc)?.t === cont), rand);
+  const others = T.shuffle(CITIES.map((_, i) => i).filter(i => i !== target && !same.includes(i)), rand);
+  const pick = [...same.slice(0, 2), ...others].filter((v, i, a) => a.indexOf(v) === i).slice(0, 3);
+  return T.shuffle([target, ...pick], rand);
+}
+function start(m, fresh = false) {
+  mode = m; day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(`sehir-${m}`, null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (s && s.picks.some(i => !CITIES[i])) s = null;
+  if (!s) {
+    const rand = m === "daily" ? T.rng(day * 3301 + 29) : Math.random;
+    const picks = T.shuffle(CITIES.map((_, i) => i), rand).slice(0, ROUNDS);
+    // açılış ve kapanış kısımlarını atla: videonun %15–%75 arasından başla
+    const starts = picks.map(i => Math.floor(CITIES[i].secs * (.15 + rand() * .6)));
+    s = { picks, opts: picks.map(i => makeOptions(i, rand)), starts, round: 0, answers: [] };
+  }
+  ({ picks, opts, starts, round, answers } = s);
+  save(); loadVideo(); render();
+  T.altSatir(m, day, ["Yeni oyun", () => start("practice", true)]);
+  T.aktifMod(m);
+}
+function save() { store.set(`sehir-${mode}`, { day, picks, opts, starts, round, answers }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => {
+  const n = answers.filter((a, i) => a === picks[i]).length, over = answers.length >= ROUNDS;
+  return `${over ? `<div class="result"><div class="big">${n}/${ROUNDS}</div><p>şehri doğru bildiniz</p></div>
+    <div style="margin-top:12px">${picks.map((p, i) => `<div class="sumrow"><span>${answers[i] === p ? "✅" : "❌"} ${CITIES[p].tr}</span><span style="color:var(--muted)">${answers[i] === p ? "" : CITIES[answers[i]].tr}</span></div>`).join("")}</div><h3>Genel</h3>` : ""}
+    ${T.sayilar([[stats.played, "Oynanan"], [stats.played ? Math.round(stats.correct / (stats.played * ROUNDS) * 100) + "%" : "–", "İsabet"], [stats.perfect, "5'te 5"], [T.seri(stats), "Seri"]])}
+    ${T.altBolum({ gunluk: mode === "daily", bitti: over })}`;
+});
+T.paylasim(() => `Şehir #${day + 1}: ${answers.filter((a, i) => a === picks[i]).length}/5 🏙️\n${picks.map((p, i) => answers[i] === p ? "🟩" : "🟥").join("")}`);
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily");
+T.ilkZiyaret("sehir-seen");
+</script>
+</body>
+</html>

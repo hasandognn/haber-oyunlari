@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Ülke — Silüetten Ülke Bulmaca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="temel.css">
+<link rel="stylesheet" href="cografya.css">
+<style>
+.shape{width:min(300px, calc(100vw - 80px), calc(100dvh - 520px));aspect-ratio:1;display:grid;place-items:center}
+.shape svg{width:100%;height:100%;overflow:visible}
+.shape path{fill:#2f4a63;transition:fill .5s var(--ease)}
+.shape.won path{fill:var(--ok)}
+.shape.in svg{animation:pop .5s var(--ease)}
+</style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="sub" id="sub"></div>
+    <div class="shape" id="shape"></div>
+    <div class="guesses" id="guesses"></div>
+    <div class="answer" id="answer" hidden></div>
+    <div class="guessbox" id="gbox"><input class="field" id="field" placeholder="Ülke yazın…" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="opts" id="opts" hidden></div></div>
+  </main>
+</div>
+
+<script src="ayarlar.js"></script>
+<script src="filtre.js"></script>
+<script src="ulkeler.js"></script>
+<script src="cografya.js"></script>
+<script src="temel.js"></script>
+<script>
+const MAX = 6;
+const { $, store, toast } = T;
+T.kur({
+  ad: "Ülke",
+  modDegisti: m => start(m, true),
+  yeni: () => start("practice", true), yeniEtiket: "Yeni ülke",
+  yardim: `<p>Silüeti verilen <b>ülkeyi</b> 6 denemede bulun.</p>
+    <ul><li>Her tahminden sonra gizli ülkeye olan <b>mesafeyi</b>, <b>yönü</b> ve <b>yakınlığı</b> görürsünüz.</li>
+    <li>Yön ve mesafe ülkelerin merkezleri arasında hesaplanır.</li>
+    <li>Yakınlık %100'e yaklaştıkça ısınıyorsunuz.</li></ul>
+    <div class="hr"></div><p class="note">Sınırlar: Natural Earth (kamu malı). Bayraklar: flag-icons (MIT lisansı).</p>`
+});
+
+let stats = store.get("ulke-stats", { played: 0, wins: 0, streak: 0, best: 0, lastDay: null, dist: [0, 0, 0, 0, 0, 0] });
+let mode, day, target, guesses, over, won;
+const POOL = G.gunlukHavuz(1e6).filter(k => !window.Filtre?.ifadeYasak(G.byK.get(k).a));
+
+/* ---------- Render ---------- */
+function render(fresh = -1) {
+  const t = G.byK.get(target);
+  $("#shape").innerHTML = `<svg viewBox="-2 -2 104 104"><path d="${t.s}"/></svg>`;
+  $("#shape").classList.toggle("won", won);
+  $("#guesses").innerHTML = Array.from({ length: MAX }, (_, i) => {
+    const k = guesses[i];
+    if (!k) return `<div class="g empty"><div></div><div></div><div></div><div></div></div>`;
+    const c = G.byK.get(k), d = G.km(c, t), hit = k === target;
+    return `<div class="g${hit ? " win" : ""}${i === fresh ? " new" : ""}">
+      <div style="--d:0"><img src="bayraklar/${k}.svg" alt="">${c.a}</div>
+      <div style="--d:1">${hit ? "🎉" : G.kmYaz(d)}</div>
+      <div class="arrow" style="--d:2">${hit ? "✅" : G.yon(c, t).ok}</div>
+      <div style="--d:3">%${G.yakinlik(d)}</div></div>`;
+  }).join("");
+  const a = $("#answer");
+  a.hidden = !over;
+  if (over) { a.className = "answer" + (won ? " win" : ""); a.innerHTML = `<img src="bayraklar/${target}.svg" alt=""><div><small>${won ? `${guesses.length}. tahminde buldunuz` : "Cevap"}</small><b>${t.a}</b></div>`; }
+  $("#gbox").hidden = over;
+}
+
+/* ---------- Oyun ---------- */
+G.kutu($("#field"), $("#opts"), c => guess(c.k), () => new Set(guesses));
+function guess(k) {
+  if (over) return;
+  if (guesses.includes(k)) return toast("Bunu zaten denediniz");
+  guesses.push(k);
+  if (k === target) { over = true; won = true; }
+  else if (guesses.length >= MAX) { over = true; won = false; }
+  else { const c = G.byK.get(k); toast(`${G.kmYaz(G.km(c, G.byK.get(target)))} · ${G.yon(c, G.byK.get(target)).ad}`); }
+  save(); render(guesses.length - 1);
+  if (over) finish();
+}
+function finish() {
+  if (mode === "daily") {
+    stats.played++;
+    if (won) { stats.wins++; stats.dist[guesses.length - 1]++; }
+    T.seriGuncelle(stats, day, won);
+    store.set("ulke-stats", stats);
+  }
+  toast(won ? ["Dahi!", "Muhteşem!", "Harika!", "Çok iyi!", "Güzel!", "Kıl payı!"][guesses.length - 1] : `Cevap: ${G.byK.get(target).a}`, 2000);
+  setTimeout(() => { if (!T.isOpen()) T.open("stats"); }, 1500);
+}
+function start(m, fresh = false) {
+  mode = m; day = T.dayIndex();
+  let s = fresh && m === "practice" ? null : store.get(`ulke-${m}`, null);
+  if (s && m === "daily" && s.day !== day) s = null;
+  if (s && !G.byK.has(s.target)) s = null;
+  if (!s) {
+    const target = m === "daily" ? POOL[((day * 37 + 11) % POOL.length + POOL.length) % POOL.length] : T.shuffle(POOL.slice())[0];
+    s = { target, guesses: [] };
+  }
+  ({ target, guesses } = s);
+  won = guesses.includes(target); over = won || guesses.length >= MAX;
+  save(); render();
+  $("#shape").classList.remove("in"); void $("#shape").offsetWidth; $("#shape").classList.add("in");
+  T.altSatir(m, day, ["Yeni ülke", () => start("practice", true)]);
+  T.aktifMod(m);
+}
+function save() { store.set(`ulke-${mode}`, { day, target, guesses }); }
+
+/* ---------- İstatistik ---------- */
+T.istatistik(() => `${over ? `<div class="answer${won ? " win" : ""}"><img src="bayraklar/${target}.svg" alt=""><div><small>${won ? `${guesses.length}/${MAX}` : "Cevap"}</small><b>${G.byK.get(target).a}</b></div></div><h3>Genel</h3>` : ""}
+  ${T.sayilar([[stats.played, "Oynanan"], [stats.played ? Math.round(stats.wins / stats.played * 100) : 0, "Kazanma %"], [T.seri(stats), "Güncel Seri"], [stats.best || 0, "En İyi Seri"]])}
+  <h3>Tahmin Dağılımı</h3>${T.dagilim(stats.dist, [1, 2, 3, 4, 5, 6], mode === "daily" && won ? guesses.length - 1 : -1)}
+  ${T.altBolum({ gunluk: mode === "daily", bitti: over })}`);
+T.paylasim(() => {
+  const t = G.byK.get(target);
+  const rows = guesses.map(k => { const c = G.byK.get(k), p = k === target ? 100 : G.yakinlik(G.km(c, t)); const full = Math.floor(p / 20); return "🟩".repeat(full) + (p % 20 >= 10 ? "🟨" : "") + "⬜".repeat(5 - full - (p % 20 >= 10 ? 1 : 0)) + (k === target ? "🎉" : G.yon(c, t).ok); }).join("\n");
+  return `Ülke #${day + 1} ${won ? guesses.length : "X"}/${MAX}\n${rows}`;
+});
+T.gunDegisince(() => { if (mode === "daily" && T.dayIndex() !== day) start("daily"); });
+
+/* ---------- Boot ---------- */
+start("daily");
+T.ilkZiyaret("ulke-seen");
+</script>
+</body>
+</html>
